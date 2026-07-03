@@ -28,7 +28,10 @@ A Claude Code plugin marketplace for writing-style policy. The plugin,
 The method and the deployment architecture come from a worked reference
 implementation: [claude-style-policy](https://github.com/garycoding/claude-style-policy),
 which documents the four-layer design and why it holds up in long
-sessions.
+sessions. The full architecture — the layer model, the JSON engine
+ladder, the build-time/run-time division at the sudo boundary, the
+process walkthroughs, and the invariants — is documented in
+[docs/architecture.md](docs/architecture.md).
 
 ## Why four layers
 
