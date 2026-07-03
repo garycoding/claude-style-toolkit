@@ -30,28 +30,33 @@ apply unapproved changes to their directive.
   When their preference conflicts with your advice, say so once, then
   follow their verdict.
 
-## Phase 0 — Mode
+## Phase 0 — Gather source material
 
-Ask which starting point fits:
+Before anything else, proactively prompt the user for both of the
+following. Do not wait for them to volunteer these, and do not treat them
+as an either/or — ask for both by name, because a user often has material
+they would not think to mention:
 
-- **Mode A, interview**: they describe the voice they want; you draft
-  from their answers.
-- **Mode B, exemplars**: they point you at 3–10 documents whose voice
-  they consider right (their best press releases, letters, reports).
-  Read them and mine the implicit style: register, diction level,
-  sentence complexity, formatting habits, how claims are hedged or
-  asserted, what never appears. Draft rules from what you observe, and
-  take example pairs from their actual sentences wherever possible — a
-  positive example in the author's own words anchors better than an
-  invented one. Then run the Phase 1 interview only for what exemplars
-  cannot show (banned phrases, scope, precedence, failure modes they've
-  seen in AI output).
+- **Exemplar documents**: 3–10 finished pieces whose voice they consider
+  right — their best press releases, letters, reports, posts. Read them
+  and mine the implicit style: register, diction level, sentence
+  complexity, formatting habits, how claims are hedged or asserted, what
+  never appears. Take example pairs from their actual sentences wherever
+  possible — a positive example in the author's own words anchors better
+  than an invented one.
+- **An existing draft**: any style guide, rough directive, or partial
+  notes they already have. If they bring one, you are refining, not
+  starting from scratch — preserve their wording where it is precise and
+  upgrade it to the rule/test/example-pair template where it is vague.
 
-Both modes converge on the same Phases 2–7.
+A user may bring both, one, or neither. Read everything they provide in
+full before drafting. Phase 1 then fills only the gaps the material does
+not already answer.
 
 ## Phase 1 — Intake interview
 
-Collect, in the user's own words:
+Collect, in the user's own words — but skip anything the exemplars or the
+existing draft already establish, and confirm rather than re-ask it:
 
 - Voice: five or six adjectives, and — more useful — what AI output has
   done wrong for them before (specific irritations become rules).
@@ -67,14 +72,23 @@ Collect, in the user's own words:
   keep (they usually are).
 - Whether output in other languages should follow the same standards.
 
-## Phase 2 — Draft
+## Phase 2 — First draft
 
-Draft the directive using `resources/directive-template.md` as the
-skeleton. Keep the user's wording where it is precise; upgrade it to the
-rule/test/example-pair template where it is vague. Include the standard
-closing sections from the template (Scope and precedence, Formatting,
-Compact Instructions) — they exist because their absence is a known
-failure mode, but adapt their content to the user.
+Synthesize the exemplars, any existing draft, and the interview into a
+complete first draft of the user's `AI_comm_and_writing_style.md`, using
+`resources/directive-template.md` as the skeleton. Keep the user's
+wording where it is precise; upgrade it to the rule/test/example-pair
+template where it is vague. Include the standard closing sections from
+the template (Scope and precedence, Formatting, Compact Instructions) —
+they exist because their absence is a known failure mode, but adapt their
+content to the user.
+
+Present the complete first draft to the user. This begins the
+back-and-forth: from here you refine the document with them — the
+contradiction pass and fresh-eyes review below, plus any change they
+ask for directly — one decision per exchange, and you keep iterating
+until they are pleased with the result. Do not proceed to the digest
+and deployment until the user says the document is right.
 
 ## Phase 3 — Contradiction pass
 
@@ -102,6 +116,11 @@ self-violations), and a compliance simulator (apply the directive to
 4–5 of the user's real scenarios, collected in Phase 1). Discard
 findings that would bloat the document; present survivors ranked, and
 apply only what the user approves.
+
+The back-and-forth ends when the user is satisfied, not when this phase
+completes. After substantial changes, offer another fresh-eyes pass, and
+keep refining — review findings or freeform edits — until the user
+confirms the document is right. Only then continue to Phase 5.
 
 ## Phase 5 — Digest
 
