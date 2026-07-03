@@ -1,0 +1,517 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: 2026 Gary Frattarola
+SPDX-License-Identifier: MIT OR Apache-2.0
+
+Designed HTML presentation of docs/cowork-user-guide.md (dual-track: the MD is
+canonical; this is regenerated from it). Self-contained, no build step, no
+external CSS/JS/fonts. System fonts only. Three colours used consistently.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>edgar-style-policy · Cowork user's manual</title>
+  <style>
+    /* =========================================================
+       PALETTE  (three colours + neutrals, used consistently)
+         #0c1018  deep background
+         #14182a  card surface
+         #e8e6df  body off-white          (warm, paper-ish)
+         #e8b04a  accent gold             (task numerals, affirmatives, headings)
+         #5c8a99  cool blue-grey          (structure, labels, the reopen motif)
+         #7d8090  muted grey              (secondary, the "does not work" case)
+         #2a3045  rule/hairline
+       ========================================================= */
+    :root {
+      --bg:      #0c1018;
+      --surface: #14182a;
+      --ink:     #e8e6df;
+      --gold:    #e8b04a;
+      --cool:    #5c8a99;
+      --mute:    #7d8090;
+      --rule:    #2a3045;
+      --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Hoefler Text', Georgia, serif;
+      --sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'Helvetica Neue', Arial, sans-serif;
+      --mono:  'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.62;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .page { max-width: 900px; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code, .cmd {
+      font-family: var(--mono);
+      font-size: 0.86em;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 0.08em 0.4em;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    /* ── META + HERO ───────────────────────────────────────── */
+    .meta {
+      color: var(--cool);
+      font-size: 0.74rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      margin-bottom: 2.4rem;
+    }
+    .doc-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1.12;
+      letter-spacing: -0.01em;
+      margin: 0 0 0.9rem;
+      max-width: 22ch;
+    }
+    .doc-sub {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+      color: var(--cool);
+      margin: 0 0 2.2rem;
+    }
+    .intro {
+      border-left: 2px solid var(--rule);
+      padding: 0.1rem 0 0.1rem 1.4rem;
+      margin: 0 0 3.5rem;
+      color: var(--mute);
+      max-width: 66ch;
+      font-size: 0.98rem;
+    }
+    .intro strong { color: var(--ink); font-weight: 600; }
+
+    /* ── SECTION HEADINGS ──────────────────────────────────── */
+    .band {
+      font-family: var(--sans);
+      font-size: 0.72rem;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--cool);
+      margin: 4rem 0 1.4rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    /* ── GROUND RULES (two cards) ──────────────────────────── */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.3rem;
+    }
+    .rule-card {
+      background: var(--surface);
+      border-radius: 7px;
+      padding: 1.6rem 1.7rem 1.8rem;
+      border: 1px solid var(--rule);
+    }
+    .rule-glyph { display: block; margin-bottom: 1.1rem; }
+    .rule-h {
+      font-family: var(--serif);
+      font-size: 1.32rem;
+      font-weight: 400;
+      color: var(--gold);
+      margin: 0 0 0.7rem;
+      line-height: 1.2;
+    }
+    .rule-card p { margin: 0 0 0.7rem; font-size: 0.96rem; }
+    .rule-card p:last-child { margin-bottom: 0; }
+    .yes { color: var(--gold); font-weight: 600; }
+    .no  { color: var(--mute); font-weight: 600; }
+
+    /* ── TIER CALLOUT ──────────────────────────────────────── */
+    .callout {
+      margin: 1.6rem 0 0;
+      background: linear-gradient(90deg, rgba(232,176,74,0.08), transparent);
+      border-left: 3px solid var(--gold);
+      border-radius: 0 6px 6px 0;
+      padding: 1.1rem 1.4rem;
+      font-size: 0.96rem;
+      color: var(--ink);
+    }
+    .callout strong { color: var(--gold); }
+
+    /* ── TASK INDEX (glance map) ───────────────────────────── */
+    .task-index {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.8rem;
+      margin-top: 0.4rem;
+    }
+    .ti {
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 0.9rem 0.9rem 1rem;
+      color: var(--ink);
+    }
+    .ti:hover { border-color: var(--cool); text-decoration: none; }
+    .ti-num {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      color: var(--gold);
+      line-height: 1;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+    .ti-name { font-size: 0.82rem; color: var(--ink); line-height: 1.25; }
+
+    /* ── TASK SECTIONS ─────────────────────────────────────── */
+    .task { margin: 3.4rem 0 0; scroll-margin-top: 1.5rem; }
+    .task-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.9rem;
+      margin: 0 0 1rem;
+    }
+    .task-num {
+      font-family: var(--serif);
+      font-size: 2.2rem;
+      color: var(--cool);
+      line-height: 1;
+      opacity: 0.85;
+      flex: none;
+    }
+    .task-title {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      color: var(--gold);
+      margin: 0;
+      line-height: 1.15;
+      letter-spacing: -0.005em;
+    }
+    .task > p { max-width: 66ch; margin: 0 0 1.1rem; }
+
+    ol.steps {
+      counter-reset: step;
+      list-style: none;
+      margin: 0 0 1.2rem;
+      padding: 0;
+      max-width: 66ch;
+    }
+    ol.steps > li {
+      counter-increment: step;
+      position: relative;
+      padding: 0 0 0 2.4rem;
+      margin: 0 0 0.85rem;
+    }
+    ol.steps > li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: -0.05em;
+      width: 1.6rem;
+      height: 1.6rem;
+      border: 1px solid var(--cool);
+      border-radius: 50%;
+      color: var(--cool);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* the recurring "quit and reopen" refrain */
+    .reopen {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--cool);
+      border-radius: 5px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.86rem;
+      color: var(--ink);
+      margin: 0.2rem 0 0.4rem;
+    }
+    .reopen svg { flex: none; }
+    .reopen b { color: var(--cool); font-weight: 600; }
+    kbd {
+      font-family: var(--mono);
+      font-size: 0.82em;
+      background: var(--bg);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      padding: 0.05em 0.35em;
+    }
+
+    /* ── QUICK REFERENCE ───────────────────────────────────── */
+    .quickref {
+      margin: 4.5rem 0 0;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 1.8rem 2rem;
+    }
+    .quickref .rule-h { margin-bottom: 0.9rem; }
+    .quickref p { margin: 0; max-width: 68ch; color: var(--ink); }
+
+    footer {
+      margin-top: 3.5rem;
+      color: var(--mute);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      border-top: 1px solid var(--rule);
+      padding-top: 1.2rem;
+    }
+
+    /* ── RESPONSIVE COLLAPSE ───────────────────────────────── */
+    @media (max-width: 680px) {
+      .rules-grid { grid-template-columns: 1fr; }
+      .task-index { grid-template-columns: 1fr 1fr; }
+      .doc-title { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="meta">edgar-style-policy &middot; a Cowork user's manual</div>
+
+    <h1 class="doc-title">Writing-style policy on Claude for Mac</h1>
+    <p class="doc-sub">Everything from the Cowork tab, no terminal required.</p>
+
+    <div class="intro">
+      <p>This manual is for someone who uses Claude for Mac and works in the
+      <strong>Cowork tab</strong>. It covers installing the style toolkit,
+      creating and deploying a writing style, keeping several styles and
+      switching between them, updating the plugin, and removing a style. It
+      assumes no terminal and no command-line knowledge; you do everything by
+      talking to Claude.</p>
+    </div>
+
+    <!-- GROUND RULES ------------------------------------------------- -->
+    <div class="band">Two ground rules to read first</div>
+
+    <div class="rules-grid">
+
+      <div class="rule-card">
+        <svg class="rule-glyph" width="150" height="52" viewBox="0 0 150 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- affirmative: a skill command works -->
+          <circle cx="13" cy="14" r="9" fill="none" stroke="#e8b04a" stroke-width="1.6"/>
+          <path d="M9 14.2 l3 3 l6 -6.6" fill="none" stroke="#e8b04a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="30" y="18" font-family="SF Mono, Menlo, monospace" font-size="10.5" fill="#e8e6df">/edgar-style-policy:</text>
+          <!-- negative: a /plugin command does not -->
+          <circle cx="13" cy="39" r="9" fill="none" stroke="#7d8090" stroke-width="1.6"/>
+          <path d="M9.4 35.4 l7.2 7.2 M16.6 35.4 l-7.2 7.2" stroke="#7d8090" stroke-width="1.8" stroke-linecap="round"/>
+          <text x="30" y="43" font-family="SF Mono, Menlo, monospace" font-size="10.5" fill="#7d8090">/plugin &nbsp;&middot;&nbsp; /reload-plugins</text>
+        </svg>
+        <h2 class="rule-h">Two kinds of slash command</h2>
+        <p>A skill command begins with <code>/edgar-style-policy:</code> and
+        <span class="yes">works</span> when you type it into the chat.</p>
+        <p>A plugin command, <code>/plugin</code> or <code>/reload-plugins</code>,
+        <span class="no">does not work</span> in Cowork; it belongs to the
+        terminal. Wherever this manual needs one, you simply ask Claude in plain
+        words, and Claude runs it for you.</p>
+      </div>
+
+      <div class="rule-card">
+        <svg class="rule-glyph" width="150" height="52" viewBox="0 0 150 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <!-- a reload cycle: quit -> reopen -->
+          <g transform="translate(26,26)" fill="none" stroke="#5c8a99" stroke-width="1.8" stroke-linecap="round">
+            <path d="M -14 0 A 14 14 0 1 1 -4 13.2"/>
+            <path d="M -4 13.2 l -5.6 -1.6 M -4 13.2 l 1.6 -5.6"/>
+          </g>
+          <text x="52" y="23" font-family="-apple-system, system-ui, sans-serif" font-size="11" fill="#e8e6df">quit &nbsp;(&#8984;Q)</text>
+          <text x="52" y="40" font-family="-apple-system, system-ui, sans-serif" font-size="11" fill="#e8e6df">then reopen</text>
+        </svg>
+        <h2 class="rule-h">Changes load when a session starts</h2>
+        <p>After anything that installs, updates, removes, deploys, or switches,
+        fully quit Claude for Mac (<kbd>&#8984;Q</kbd>) and open it again.</p>
+        <p>There is no in-app reload in Cowork. Skip this and nothing you just did
+        will take effect; it is the single most common reason a step seems not to
+        work.</p>
+      </div>
+
+    </div>
+
+    <div class="callout">
+      When Claude offers a choice of tier, choose the <strong>user tier</strong>.
+      It needs no password and Claude does all of it from Cowork. The managed
+      tier is sturdier against tampering, but installing or removing it requires
+      a password command in the macOS Terminal, which a Cowork workflow avoids.
+      This manual uses the user tier throughout.
+    </div>
+
+    <!-- TASK INDEX --------------------------------------------------- -->
+    <div class="band">The five tasks</div>
+    <nav class="task-index">
+      <a class="ti" href="#install"><span class="ti-num">1</span><span class="ti-name">Install the toolkit</span></a>
+      <a class="ti" href="#create"><span class="ti-num">2</span><span class="ti-name">Create &amp; deploy a style</span></a>
+      <a class="ti" href="#switch"><span class="ti-num">3</span><span class="ti-name">Keep &amp; switch styles</span></a>
+      <a class="ti" href="#update"><span class="ti-num">4</span><span class="ti-name">Update the plugin</span></a>
+      <a class="ti" href="#uninstall"><span class="ti-num">5</span><span class="ti-name">Remove a style or the plugin</span></a>
+    </nav>
+
+    <!-- 1. INSTALL --------------------------------------------------- -->
+    <section class="task" id="install">
+      <div class="task-head"><span class="task-num">1</span><h2 class="task-title">Install the toolkit</h2></div>
+      <p>The toolkit comes in two parts: a marketplace, the catalogue Claude
+      reads from, and the plugin itself, named <code>edgar-style-policy</code>.
+      You add both by asking Claude, once.</p>
+      <ol class="steps">
+        <li>Open a Cowork chat and say, in plain words: <em>"Please add the
+        marketplace <code>garycoding/claude-style-toolkit</code> and install the
+        <code>edgar-style-policy</code> plugin."</em> Claude runs the
+        installation and confirms it.</li>
+        <li>Fully quit Claude for Mac (<kbd>&#8984;Q</kbd>) and open it again.</li>
+        <li>Confirm it: in a new chat, type <code>/edgar-style-policy:</code> and
+        you should see the toolkit's commands offered. Or ask Claude whether the
+        plugin is installed, and which version.</li>
+      </ol>
+      <div class="reopen">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#5c8a99" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
+        <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen.</span>
+      </div>
+      <p style="color:var(--mute);font-size:0.92rem;max-width:66ch;margin-top:0.6rem">
+      Do not type <code>/plugin</code> into the app to install; it will not work
+      there. The plain-language request in step&nbsp;1 is the whole of it.</p>
+    </section>
+
+    <!-- 2. CREATE ---------------------------------------------------- -->
+    <section class="task" id="create">
+      <div class="task-head"><span class="task-num">2</span><h2 class="task-title">Create and deploy your first style</h2></div>
+      <p>A style is a set of rules for how Claude writes: its voice, the words it
+      must avoid, how it formats, how it handles claims. The
+      <code>style-author</code> skill walks you through building one and then
+      deploys it.</p>
+      <ol class="steps">
+        <li>In a Cowork chat, type <code>/edgar-style-policy:style-author</code>
+        (or ask Claude to help you create a writing style).</li>
+        <li>Answer Claude's questions: the voice you want in a few adjectives,
+        what past writing has done wrong, words to ban, formatting preferences,
+        and a name. If you have documents whose voice you like, offer them; they
+        are the strongest material Claude can work from.</li>
+        <li>Claude drafts the style, reviews it with you, and refines it until you
+        are satisfied. Take your time here; this is the part that matters.</li>
+        <li>When Claude asks which tier, choose the <span class="yes">user
+        tier</span>. Claude installs it with no password and saves a copy in your
+        local library for reuse.</li>
+        <li>Confirm it is active: ask Claude which writing style is active. From
+        now on Claude follows your style when it writes in Cowork.</li>
+      </ol>
+      <div class="reopen">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#5c8a99" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
+        <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen before the style takes effect.</span>
+      </div>
+    </section>
+
+    <!-- 3. SWITCH ---------------------------------------------------- -->
+    <section class="task" id="switch">
+      <div class="task-head"><span class="task-num">3</span><h2 class="task-title">Keep several styles and switch between them</h2></div>
+      <p>Every style you author is kept in a local library, so you can build more
+      than one and move between them by name. Nothing you switch away from is
+      lost. To create a second style, run
+      <code>/edgar-style-policy:style-author</code> again with a different name;
+      it joins the first in your library.</p>
+      <ol class="steps">
+        <li>In a Cowork chat, type
+        <code>/edgar-style-policy:style-switch</code>. Claude lists the styles in
+        your library and marks which one is active.</li>
+        <li>Tell Claude which style to switch to, by name.</li>
+        <li>Claude re-deploys the chosen style for you, again with no password.</li>
+      </ol>
+      <div class="reopen">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#5c8a99" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
+        <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen; the new style takes effect on the next session.</span>
+      </div>
+      <p style="color:var(--mute);font-size:0.92rem;max-width:66ch;margin-top:0.6rem">
+      Switching back is the same procedure. Your styles stay in the library
+      until you deliberately remove them, so you can move between them as often
+      as you like.</p>
+    </section>
+
+    <!-- 4. UPDATE ---------------------------------------------------- -->
+    <section class="task" id="update">
+      <div class="task-head"><span class="task-num">4</span><h2 class="task-title">Update the plugin</h2></div>
+      <p>When a new version of the toolkit is published, the
+      <code>self-update</code> skill brings you to it. This exists because the
+      ordinary install command does not upgrade a plugin that is already
+      installed; <code>self-update</code> does the whole thing for you.</p>
+      <ol class="steps">
+        <li>In a Cowork chat, type
+        <code>/edgar-style-policy:self-update</code>.</li>
+        <li>Claude refreshes the catalogue, checks your installed version against
+        the latest, and, if a newer one exists, updates it for you and names the
+        new version and what it adds. No password is needed.</li>
+      </ol>
+      <div class="reopen">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#5c8a99" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
+        <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen to load the new version.</span>
+      </div>
+      <p style="color:var(--mute);font-size:0.92rem;max-width:66ch;margin-top:0.6rem">
+      If Claude reports you are already on the latest version, there is nothing
+      to do.</p>
+    </section>
+
+    <!-- 5. UNINSTALL ------------------------------------------------- -->
+    <section class="task" id="uninstall">
+      <div class="task-head"><span class="task-num">5</span><h2 class="task-title">Remove a style, or remove the plugin</h2></div>
+      <p>"Uninstall" can mean two different things; here is each.</p>
+
+      <p style="margin-bottom:0.6rem"><span class="yes">To remove a writing style but keep the toolkit</span>,
+      use the <code>style-uninstall</code> skill:</p>
+      <ol class="steps">
+        <li>In a Cowork chat, type
+        <code>/edgar-style-policy:style-uninstall</code> and confirm when Claude
+        asks. Claude removes the active style's deployed files, with no
+        password.</li>
+      </ol>
+      <div class="reopen">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#5c8a99" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
+        <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen; Claude no longer applies the style.</span>
+      </div>
+      <p style="max-width:66ch">Your library copy of that style is left in place,
+      so you can switch back to it or redeploy it later; removing a style does not
+      erase it from your collection.</p>
+
+      <p style="margin:1.4rem 0 0.6rem"><span class="yes">To remove the toolkit itself</span>, ask Claude in plain
+      words: <em>"Please uninstall the <code>edgar-style-policy</code>
+      plugin."</em> Claude runs the removal; then quit and reopen. This takes the
+      plugin off your machine but still leaves your saved styles in the library
+      untouched. If you want those gone as well, ask Claude to delete the folder
+      <code>~/.claude/edgar-style-policies</code>.</p>
+    </section>
+
+    <!-- QUICK REFERENCE ---------------------------------------------- -->
+    <div class="quickref">
+      <h2 class="rule-h">The one habit that makes it all work</h2>
+      <p>After you install, deploy, switch, update, or remove anything, quit
+      Claude for Mac with <kbd>&#8984;Q</kbd> and open it again. Everything else
+      is a matter of typing an <code>/edgar-style-policy:</code> command or asking
+      Claude in plain words, and letting Claude do the work. You never need a
+      terminal, and you should never be asked for a password; if you are, that is
+      the managed tier, which you can decline in favour of the user tier this
+      manual uses.</p>
+    </div>
+
+    <footer>
+      edgar-style-policy &middot; Cowork user's manual &middot; canonical source:
+      docs/cowork-user-guide.md
+    </footer>
+
+  </div>
+</body>
+</html>
