@@ -50,8 +50,9 @@ they would not think to mention:
   upgrade it to the rule/test/example-pair template where it is vague.
 
 A user may bring both, one, or neither. Read everything they provide in
-full before drafting. Phase 1 then fills only the gaps the material does
-not already answer.
+full before drafting. Phase 1 then fills the gaps the material leaves
+open — and when the user brings neither exemplars nor a draft, Phase 1
+is a full interview that gathers everything the first draft needs.
 
 ## Phase 1 — Intake interview
 
