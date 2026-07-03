@@ -83,4 +83,6 @@ been run yet.
 
 Close by reminding the user that the canonical directive in their repo is
 intact, so `style-author` (or a reinstall) can restore the policy at any
-time.
+time — and that if a different output style was selected before this
+policy was installed, that selection is not restored automatically: it
+survives in the pre-install settings backup, and they can reselect it.

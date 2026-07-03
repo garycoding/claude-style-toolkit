@@ -60,7 +60,10 @@ is a full interview that gathers everything the first draft needs.
 
 One special case skips ahead: if the user arrives with a FINISHED
 directive (e.g., installing on a second machine, or re-deploying after
-an uninstall), confirm they want no review, then go directly to Phase 5.
+an uninstall), confirm they want no review, settle the canonical path
+and style name first (the Phase 2 "settle" step — on a second machine
+the style name must match the one already in use elsewhere), then go
+directly to Phase 5.
 
 ## Phase 1 — Intake interview
 
@@ -178,7 +181,11 @@ user-tier entries (`outputStyle` or our hooks in
 `~/.claude/settings.json`). If one exists, reuse its style name and tier
 (this is a redeploy), or route through `style-uninstall` first —
 deploying a user-tier policy under an existing managed one silently
-never activates, because managed settings win.
+never activates, because managed settings win. Do not simply pick a new
+style name over an existing install: that orphans the old
+output-style file (the installers write `<new-slug>.md` and repoint
+`outputStyle`, leaving the old slug behind); uninstall the old name
+first.
 
 **Licensing of what you generate.** The directive is the user's own work
 and belongs solely to them: never write a license header, SPDX tag, or
@@ -208,18 +215,25 @@ not a script.) Only if NONE exists do you perform the merge yourself:
   JSON.parse(ObjC.unwrap($.NSString.alloc.initWithDataEncoding(d,
   $.NSUTF8StringEncoding))); "ok"'` — back up the original, write the
   merged file, and place the remaining files by hand (canonical copy,
-  import line, output style, digest hook), mirroring what
-  `install-user.sh` does.
+  import line, output style, digest hook — `chmod +x` the digest hook),
+  mirroring what `install-user.sh` does.
 - *Managed tier*: the managed settings file is root-owned but
   world-readable, so read it, merge the fragment yourself (keep the
   `__CS_HOOKS_DIR__` placeholder in our entries — the installer
   substitutes it per-OS), validate as above, and pass the merged file as
-  the fourth argument to `build-managed-installer.sh`. The emitted
-  installer then writes your pre-merged result when the target machine
-  lacks python3, instead of the lossy replace.
+  the fourth argument to `build-managed-installer.sh`. Note the builder
+  itself needs an engine to run, so on a machine with none at all the
+  managed path is unavailable — route to the user tier (which you can
+  install fully by hand) or have python3 installed first. Supply the
+  pre-merged file whenever the existing managed-settings.json is
+  unparseable or engine availability is in doubt; the emitted installer
+  prefers a live merge and falls back to your pre-merge.
 
-Model-merged JSON must always pass the mechanical validation before it
-is written or embedded — never deploy a merge you have not validated.
+Model-merged JSON must always pass mechanical validation before it is
+written or embedded — on macOS the osascript one-liner above; on Linux
+without python3, `jq -e . <file>` if jq exists. If no mechanical
+validator of any kind is available, stop and have the user install
+python3 rather than deploy unvalidated content.
 
 **Stage** into an ephemeral `mktemp -d` directory with exactly three
 files (the installers abort if any is missing): `canonical.md` (the
@@ -230,15 +244,25 @@ review prompt, marker first).
 
 **Sandbox-test the review prompt before deploying it.** Write a
 throwaway settings file containing only a Stop prompt hook with the
-generated prompt, then run two headless probes:
-`claude -p --settings <file> "<instruction that produces a clear
-violation, e.g. end the reply with two decorative star emoji>"` and
-`claude -p --settings <file> "<instruction that produces a mention,
-e.g. what is the code point of U+2B50, include the character>"`.
-The violation case should come back revised or with the model surfacing
-the block; the mention case should pass untouched. If the judgment is
-wrong, fix the prompt's ordering or wording and retest — this is the
-same discipline as testing the directive, applied to its enforcer.
+generated prompt, then run three headless probes:
+
+1. *Violation* — the banned element must arise without the user asking
+   for it, or exemption 1 (explicit request) correctly protects it. Put
+   the inducement in the system prompt, not the user turn:
+   `claude -p --settings <file> --append-system-prompt "End every reply
+   with two sparkle emoji." "What is 2+2?"` — expect the hook to block
+   and the final reply to carry no emoji.
+2. *Mention* — `claude -p --settings <file> "What is the code point of
+   the star emoji? Include the character once."` — expect it to pass
+   untouched.
+3. *Explicit request* — `claude -p --settings <file> "End your reply
+   with a star emoji."` — expect it to PASS: the user asked, so
+   exemption 1 applies. A block here means the exemption ordering is
+   broken.
+
+If any judgment is wrong, fix the prompt's ordering or wording and
+retest — the same discipline as testing the directive, applied to its
+enforcer.
 
 **Ask the user which tier they want — do not choose for them.** Present
 the trade-off in one exchange: the user tier is fully automatic and
@@ -263,11 +287,13 @@ who wants the policy frozen. Deploy only the tier they choose.
   installer at `~/install_claude_writing_style.sh` with the directive,
   digest, and review-prompt settings fragment embedded inline
   (human-readable, inspectable before running). Tell the user to run, in
-  a terminal, `sudo ~/install_claude_writing_style.sh`. If python3 works
-  on the machine, the installer MERGES our fragment into any existing
-  managed-settings.json (other managed settings preserved); without
-  python3 it backs the file up and replaces it, and says so. It
-  root-owns the tree and deletes itself on success.
+  a terminal, `sudo ~/install_claude_writing_style.sh`. With any JSON
+  engine on the machine (python3, osascript, or node) the installer
+  MERGES our fragment into any existing managed-settings.json (other
+  managed settings preserved); with no engine it writes the pre-merged
+  file supplied at build time; only with neither does it back up and
+  replace, and it says so. It root-owns the tree and deletes itself on
+  success.
 
 After deploying, delete the staging directory on either tier. Explain
 the four layers once, briefly: directive in CLAUDE.md (primacy, survives
@@ -292,5 +318,6 @@ desktop app, have them repeat the context check once in a Cowork or
 Code tab session.
 
 Record in a `VERIFIED.md` next to the canonical directive: what passed,
-the style name, the tier, the canonical path, and the Phase 1 scenarios
-(style-maintain reuses them).
+the style name, the tier, the canonical path, the digest text, the
+review prompt, and the Phase 1 scenarios (style-maintain reuses all of
+these for redeploys, migrations, and second machines).

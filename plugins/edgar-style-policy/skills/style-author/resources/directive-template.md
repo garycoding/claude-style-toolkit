@@ -38,7 +38,7 @@ own work and must carry no license header — see the style-author skill, Deploy
      Idiom/jargon policy with the precision test: terms that name
      well-defined things clarify; figurative jargon that gestures without
      fixing meaning is banned however common. The user's banned words and
-     phrases belong here (and in the lint). -->
+     phrases belong here (and in the judgment-review prompt). -->
 
 ## Concision and formatting  (standard)
 

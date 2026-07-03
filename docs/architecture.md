@@ -101,8 +101,13 @@ shared library, `scripts/json-tool.sh`, identically on macOS and Linux:
 When no engine exists at all, the guiding model performs the transform
 itself — it reads the target settings (the managed file is root-owned
 but world-readable), merges or strips, and the result must pass
-mechanical validation before anything is written; with no way to
-validate, deployment requires the user's explicit consent. The engines
+mechanical validation before anything is written; with no mechanical
+validator of any kind available, the skills stop rather than deploy
+unvalidated content. Two engine-parity limitations are accepted and
+documented rather than fixed: the JavaScript rungs lose integer
+precision above 2^53 and reorder integer-like object keys (neither
+occurs in real Claude Code settings), while output is otherwise
+byte-identical across engines, including non-ASCII text. The engines
 are kept, rather than making the model the only merger, for three
 reasons: a parser is an independent check on model-produced JSON (the
 model checking its own output is a correlated failure); the scripts
@@ -172,12 +177,18 @@ never left with no policy mid-migration.
 ## Invariants
 
 - Deployed copies are never hand-edited; the fix for drift is redeploy.
-- Settings surgery touches only our three entries, matched by exact
-  filename and by the prompt marker; foreign hooks and settings survive
-  install, reinstall, and uninstall.
-- No mutation before preflight passes: engine present (or fallback
-  arranged) and existing settings parseable — a failure aborts with
-  nothing changed, never a half-install.
+- Settings surgery touches only our entries: the digest hook, matched
+  by the `style-digest.sh` filename appearing in its command (a foreign
+  hook whose command contains that substring would be treated as ours —
+  the name is reserved to this toolkit); the review hook, matched by the
+  prompt marker; and `outputStyle`, which install takes over (a prior
+  selection survives only in the backup, and uninstall says so). All
+  other hooks and settings survive install, reinstall, and uninstall.
+- No mutation before preflight passes, with one scoped exception: the
+  user-tier scripts and both uninstallers abort with nothing changed on
+  any preflight failure; the emitted installer instead terminates every
+  path in a settings write, with announced backup-and-replace as the
+  last resort.
 - Every settings write is preceded by a timestamped backup.
 - Model-produced JSON is never deployed unvalidated.
 - Generated user content — the directive, its deployed copies, the
@@ -186,12 +197,15 @@ never left with no policy mid-migration.
 
 ## Testing discipline
 
-The scripts are tested by fixture, not inspection: user-tier
-install/uninstall round-trips asserting foreign hooks and unrelated
-settings survive, run once per engine by forcing `JSON_TOOL_ENGINE`;
-emitted sudo scripts checked for valid syntax with the library inlined
-and payloads extracted back out and diffed against their sources; the
-merge and strip transforms exercised against mixed fixtures (ours-only
-collapses to nothing; foreign entries persist). Review prompts are
-tested behaviorally before deployment via the sandbox probes. When
-changing any script, rerun the matrix on all engines present.
+The discipline for changing any script — prescribed here; the harness
+is rebuilt in a scratch directory per run rather than committed: test
+by fixture, not inspection. User-tier install/uninstall round-trips
+asserting foreign hooks and unrelated settings survive, run once per
+engine by forcing `JSON_TOOL_ENGINE`; emitted sudo scripts checked for
+valid syntax with the library inlined, payloads extracted back out and
+diffed against their sources, and the runtime settings ladder executed
+in scratch with the managed paths overridden; the merge and strip
+transforms exercised against mixed fixtures (ours-only collapses to
+nothing; foreign entries persist; non-object roots rejected). Review
+prompts are tested behaviorally before deployment via the sandbox
+probes.

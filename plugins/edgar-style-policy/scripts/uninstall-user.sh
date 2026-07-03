@@ -23,7 +23,7 @@ SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' 
 [[ -n "$SLUG" ]] || SLUG="writing-style"
 CLAUDE_DIR="${HOME}/.claude"
 HOOKS_DIR="${CLAUDE_DIR}/hooks"
-STAMP=$(date +%Y%m%d%H%M%S)
+STAMP="$(date +%Y%m%d%H%M%S).$$"
 
 # Settings surgery first (with backup): remove our keys, preserve the rest.
 S="${CLAUDE_DIR}/settings.json"
@@ -35,6 +35,11 @@ if [[ -f "$S" ]]; then
         exit 1
     fi
     EXISTING="$(cat "$S")"
+    if ! EXISTING="$EXISTING" json_transform validate >/dev/null 2>&1; then
+        echo "~/.claude/settings.json is not valid JSON (or its root is not an object)." >&2
+        echo "Fix or remove it, then rerun. Nothing has been changed." >&2
+        exit 1
+    fi
     CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" json_transform strip)"
     cp "$S" "${S}.bak.${STAMP}"
     printf '%s\n' "$CLEANED" > "$S"

@@ -60,15 +60,13 @@ HDR
     fi
     cat <<'BODY'
 case "$(uname -s)" in
-    Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"
-            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | sed 's/^[^:]*: //') ;;
-    Linux)  MANAGED_DIR="/etc/claude-code"
-            USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6) ;;
+    Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode" ;;
+    Linux)  MANAGED_DIR="/etc/claude-code" ;;
     *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
 esac
 HOOKS_DIR="${MANAGED_DIR}/hooks"
 STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
-STAMP=$(date +%Y%m%d%H%M%S)
+STAMP="$(date +%Y%m%d%H%M%S).$$"
 
 ENGINE="$(detect_json_engine)"
 if [[ -z "$ENGINE" && -z "$PRECLEANED" ]]; then
@@ -85,7 +83,6 @@ fi
 
 # Settings surgery FIRST: strip only our keys, preserving anything else.
 MS="${MANAGED_DIR}/managed-settings.json"
-OURS_ONLY=0
 if [[ -f "$MS" ]]; then
     CLEANED=""
     if [[ -n "$ENGINE" ]]; then
@@ -106,7 +103,6 @@ if [[ -f "$MS" ]]; then
         # The file was ours alone: remove it and this run's backup, so an
         # empty directory can actually be removed below.
         rm -f "$MS" "${MS}.bak.${STAMP}"
-        OURS_ONLY=1
     else
         printf '%s\n' "$CLEANED" > "$MS"
     fi

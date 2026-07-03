@@ -29,24 +29,37 @@ _JSON_TOOL_PY='
 import json, os, sys
 MARKER = "[writing-style-policy]"
 op = sys.argv[1]
+def _pc(_):
+    raise ValueError("non-finite numbers are not valid JSON")
+def jloads(s):
+    return json.loads(s, parse_constant=_pc)
+def need_settings_object(v):
+    if not isinstance(v, dict) or not isinstance(v.get("hooks", {}), dict):
+        print("settings root (and any hooks key) must be a JSON object", file=sys.stderr)
+        sys.exit(1)
+    return v
 def load_env(name, default=None):
     v = os.environ.get(name, "")
     if not v.strip():
         return default
-    return json.loads(v)
+    return jloads(v)
 if op == "validate":
-    json.loads(os.environ["EXISTING"]); sys.exit(0)
+    need_settings_object(jloads(os.environ["EXISTING"])); sys.exit(0)
 if op == "fragment":
-    prompt = os.environ["PROMPT"].strip()
+    prompt = os.environ.get("PROMPT", "").strip()
+    style = os.environ.get("STYLE", "")
+    if not prompt or not style:
+        print("fragment requires non-empty STYLE and PROMPT", file=sys.stderr)
+        sys.exit(1)
     if not prompt.startswith(MARKER):
         prompt = MARKER + " " + prompt
-    out = {"outputStyle": os.environ["STYLE"], "hooks": {
+    out = {"outputStyle": style, "hooks": {
         "UserPromptSubmit": [{"hooks": [{"type": "command",
             "command": "\"__CS_HOOKS_DIR__/style-digest.sh\""}]}],
         "Stop": [{"hooks": [{"type": "prompt", "prompt": prompt}]}]}}
 elif op == "merge":
-    frag = json.loads(os.environ["FRAGMENT"])
-    out = load_env("EXISTING", {})
+    frag = jloads(os.environ["FRAGMENT"])
+    out = need_settings_object(load_env("EXISTING", {}))
     out["outputStyle"] = frag["outputStyle"]
     hooks = out.setdefault("hooks", {})
     dc = frag["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
@@ -64,7 +77,7 @@ elif op == "merge":
     hooks["Stop"] = kept
 elif op == "strip":
     style = os.environ["STYLE"]
-    out = load_env("EXISTING", {})
+    out = need_settings_object(load_env("EXISTING", {}))
     if out.get("outputStyle") == style:
         out.pop("outputStyle", None)
     hooks = out.get("hooks", {})
@@ -87,7 +100,7 @@ elif op == "strip":
         out.pop("hooks", None)
 else:
     sys.exit(2)
-print(json.dumps(out, indent=2))
+print(json.dumps(out, indent=2, ensure_ascii=False, allow_nan=False))
 '
 
 # Engine-neutral JS core: transform(op, env) -> string or null (validate).
@@ -98,18 +111,26 @@ function transform(op, env) {
         const v = env(name) || "";
         return v.trim() ? JSON.parse(v) : dflt;
     };
-    if (op === "validate") { JSON.parse(env("EXISTING")); return null; }
+    const needSettingsObject = (v) => {
+        const bad = (x) => typeof x !== "object" || x === null || Array.isArray(x);
+        if (bad(v) || (v.hooks !== undefined && bad(v.hooks)))
+            throw new Error("settings root (and any hooks key) must be a JSON object");
+        return v;
+    };
+    if (op === "validate") { needSettingsObject(JSON.parse(env("EXISTING"))); return null; }
     let out;
     if (op === "fragment") {
         let p = (env("PROMPT") || "").trim();
+        const style = env("STYLE") || "";
+        if (!p || !style) throw new Error("fragment requires non-empty STYLE and PROMPT");
         if (!p.startsWith(MARKER)) p = MARKER + " " + p;
-        out = {outputStyle: env("STYLE"), hooks: {
+        out = {outputStyle: style, hooks: {
             UserPromptSubmit: [{hooks: [{type: "command",
                 command: "\"__CS_HOOKS_DIR__/style-digest.sh\""}]}],
             Stop: [{hooks: [{type: "prompt", prompt: p}]}]}};
     } else if (op === "merge") {
         const frag = JSON.parse(env("FRAGMENT"));
-        out = loadEnv("EXISTING", {});
+        out = needSettingsObject(loadEnv("EXISTING", {}));
         out.outputStyle = frag.outputStyle;
         const hooks = out.hooks = out.hooks || {};
         const dc = frag.hooks.UserPromptSubmit[0].hooks[0].command;
@@ -126,7 +147,7 @@ function transform(op, env) {
         hooks.Stop = kept;
     } else if (op === "strip") {
         const style = env("STYLE");
-        out = loadEnv("EXISTING", {});
+        out = needSettingsObject(loadEnv("EXISTING", {}));
         if (out.outputStyle === style) delete out.outputStyle;
         const hooks = out.hooks || {};
         for (const ev of ["UserPromptSubmit", "Stop"]) {

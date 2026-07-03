@@ -148,7 +148,10 @@ tier: it writes `~/uninstall_claude_writing_style.sh` for you to run
 with sudo; the uninstaller strips only the policy's own files and
 settings entries (other managed settings are preserved), removes the
 managed directory only if it is left empty, and deletes itself. The
-canonical directive in your repo is never touched.
+canonical directive in your repo is never touched. If a different
+output style was selected before the policy was installed, that
+selection is not restored automatically — it survives in the
+pre-install settings backup.
 
 ## License
 
@@ -190,7 +193,8 @@ plugins/edgar-style-policy/
 │   │                            review-prompt template
 │   ├── style-maintain/SKILL.md
 │   └── style-uninstall/SKILL.md
-└── scripts/                     install-user.sh, uninstall-user.sh (no sudo),
+└── scripts/                     json-tool.sh (shared JSON engine ladder),
+                                 install-user.sh, uninstall-user.sh (no sudo),
                                  build-managed-installer.sh,
                                  build-managed-uninstaller.sh (emit the
                                  self-contained sudo scripts),

@@ -30,9 +30,10 @@ source "${SCRIPT_DIR}/json-tool.sh"
 STAGING="${1:?Usage: install-user.sh <staging-dir> [style-name]}"
 STYLE_NAME="${2:-Writing Style}"
 case "$STYLE_NAME" in
-    *$'\n'*) echo "Style name must not contain newlines." >&2; exit 1 ;;
-    \"*)     echo "Style name must not start with a quote." >&2; exit 1 ;;
+    *$'\n'*)   echo "Style name must not contain newlines." >&2; exit 1 ;;
+    \"*|\'*)   echo "Style name must not start with a quote." >&2; exit 1 ;;
 esac
+[[ -n "${STYLE_NAME// /}" ]] || { echo "Style name must not be empty." >&2; exit 1; }
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
 [[ -n "$SLUG" ]] || SLUG="writing-style"
 
@@ -41,6 +42,8 @@ CANONICAL_SRC="${STAGING}/canonical.md"
 SETTINGS="${CLAUDE_DIR}/settings.json"
 for f in canonical.md digest.sh review-prompt.txt; do
     [[ -f "${STAGING}/${f}" ]] || { echo "Missing ${STAGING}/${f}" >&2; exit 1; }
+    grep -qF "__CS_HOOKS_DIR__" "${STAGING}/${f}" && {
+        echo "Staged ${f} contains the reserved placeholder __CS_HOOKS_DIR__; remove it." >&2; exit 1; } || true
 done
 
 # Preflight BEFORE any mutation: an engine must exist, and any existing
@@ -52,14 +55,16 @@ if [[ -z "$ENGINE" ]]; then
     echo "On Linux run: sudo apt install python3. Nothing has been changed." >&2
     exit 1
 fi
+EXISTING=""
 if [[ -f "$SETTINGS" ]]; then
-    if ! EXISTING="$(cat "$SETTINGS")" || ! EXISTING="$EXISTING" json_transform validate >/dev/null; then
-        echo "~/.claude/settings.json is not valid JSON. Fix or remove it, then rerun." >&2
-        echo "Nothing has been changed." >&2
+    EXISTING="$(cat "$SETTINGS")"
+    if [[ -z "${EXISTING//[$' \t\n']/}" ]]; then
+        EXISTING=""   # empty file: treat as absent, matching the managed tier
+    elif ! EXISTING="$EXISTING" json_transform validate >/dev/null 2>&1; then
+        echo "~/.claude/settings.json is not valid JSON (or its root is not an object)." >&2
+        echo "Fix or remove it, then rerun. Nothing has been changed." >&2
         exit 1
     fi
-else
-    EXISTING=""
 fi
 
 # Build the merged settings up front (pure transforms; nothing written yet).
@@ -89,7 +94,7 @@ install -m 0755 "${STAGING}/digest.sh" "${CLAUDE_DIR}/hooks/style-digest.sh"
 
 # Settings: write the pre-computed merge (backup first).
 if [[ -f "$SETTINGS" ]]; then
-    cp "$SETTINGS" "${SETTINGS}.bak.$(date +%Y%m%d%H%M%S)"
+    cp "$SETTINGS" "${SETTINGS}.bak.$(date +%Y%m%d%H%M%S).$$"
 fi
 printf '%s\n' "$MERGED" > "$SETTINGS"
 

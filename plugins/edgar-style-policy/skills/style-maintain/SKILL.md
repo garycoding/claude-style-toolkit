@@ -197,8 +197,9 @@ After any canonical edit, in order:
      <staging-dir> "<Style Name>"` to assemble the self-contained
      `~/install_claude_writing_style.sh`, then have the user run
      `sudo ~/install_claude_writing_style.sh`. It merges into any
-     existing managed-settings.json when python3 is available (backup
-     first), root-owns the tree, and deletes itself on success.
+     existing managed-settings.json when any JSON engine is available
+     — python3, osascript, or node — (backup first), root-owns the
+     tree, and deletes itself on success.
 4. **Prune backups** if the user wants: each redeploy leaves a
    timestamped `managed-settings.json.bak` (managed) or
    `settings.json.bak` (user); offer to remove old ones, keeping the most

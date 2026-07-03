@@ -11,9 +11,10 @@ entirely of:
 
 - Markdown (the skills, templates, and documentation), and
 - bash scripts (the installers, uninstallers, and the digest hook
-  template); the installers and uninstallers run inline Python at
-  install/uninstall time for the settings merge, importing only the
-  Python standard library (`json`, `os`, `sys`).
+  template); at install/uninstall time the settings work runs as inline
+  Python (standard library only: `json`, `os`, `sys`) or, absent
+  python3, as an inline JavaScript equivalent via macOS `osascript` or
+  `node` — OS-provided runtimes in every case, nothing vendored.
 
 Nothing is vendored, bundled, or fetched at install time, and nothing the
 toolkit deploys depends on Python at runtime. The installers write only to

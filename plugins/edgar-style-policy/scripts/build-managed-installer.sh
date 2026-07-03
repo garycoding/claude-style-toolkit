@@ -34,9 +34,10 @@ STYLE_NAME="${2:-Writing Style}"
 OUTPUT="${3:-${HOME}/install_claude_writing_style.sh}"
 PREMERGED="${4:-}"
 case "$STYLE_NAME" in
-    *$'\n'*) echo "Style name must not contain newlines." >&2; exit 1 ;;
-    \"*)     echo "Style name must not start with a quote." >&2; exit 1 ;;
+    *$'\n'*)   echo "Style name must not contain newlines." >&2; exit 1 ;;
+    \"*|\'*)   echo "Style name must not start with a quote." >&2; exit 1 ;;
 esac
+[[ -n "${STYLE_NAME// /}" ]] || { echo "Style name must not be empty." >&2; exit 1; }
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
 [[ -n "$SLUG" ]] || SLUG="writing-style"
 
@@ -54,6 +55,12 @@ GUARDED_FILES=("${STAGING}/canonical.md" "${STAGING}/digest.sh" "${STAGING}/revi
 [[ -n "$PREMERGED" ]] && GUARDED_FILES+=("$PREMERGED")
 for s in __CS_DIRECTIVE_EOF__ __CS_STYLE_EOF__ __CS_DIGEST_EOF__ __CS_FRAG_EOF__ __CS_PREMERGED_EOF__; do
     for f in "${GUARDED_FILES[@]}"; do guard "$f" "$s"; done
+done
+# The substitution placeholder is reserved too — in staged content (not the
+# pre-merged settings, which legitimately carry it) it would be rewritten
+# into a filesystem path mid-text at run time.
+for f in "${STAGING}/canonical.md" "${STAGING}/digest.sh" "${STAGING}/review-prompt.txt"; do
+    guard "$f" "__CS_HOOKS_DIR__"
 done
 if [[ -n "$PREMERGED" ]]; then
     EXISTING="$(cat "$PREMERGED")" json_transform validate >/dev/null || {
@@ -83,10 +90,8 @@ HDR
     printf 'STYLE_NAME=%q\nSLUG=%q\n' "$STYLE_NAME" "$SLUG"
     cat <<'BODY1'
 case "$(uname -s)" in
-    Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"; GROUP="wheel"
-            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | sed 's/^[^:]*: //') ;;
-    Linux)  MANAGED_DIR="/etc/claude-code"; GROUP="root"
-            USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6) ;;
+    Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"; GROUP="wheel" ;;
+    Linux)  MANAGED_DIR="/etc/claude-code"; GROUP="root" ;;
     *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
 esac
 HOOKS_DIR="${MANAGED_DIR}/hooks"
@@ -127,23 +132,24 @@ MS="${MANAGED_DIR}/managed-settings.json"
 ENGINE="$(detect_json_engine)"
 EXISTING=""
 [[ -f "$MS" ]] && EXISTING="$(cat "$MS")"
-if [[ -n "$ENGINE" ]] && MERGED="$(FRAGMENT="$FRAGMENT" EXISTING="$EXISTING" json_transform merge)"; then
+if [[ -n "$ENGINE" ]] && MERGED="$(FRAGMENT="$FRAGMENT" EXISTING="$EXISTING" json_transform merge 2>/dev/null)"; then
     # Merge path: preserve any other managed settings; replace our own
     # marker-tagged review hook and digest entry so re-installs update them.
-    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
+    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S).$$"
     printf '%s\n' "$MERGED" > "$MS"
     echo "Merged policy into managed-settings.json (engine: ${ENGINE}; other managed settings preserved)."
 elif [[ -n "$PREMERGED" ]]; then
-    # No engine (or unparseable existing file): use the model's build-time merge.
-    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
+    # No engine, or the existing file is unusable: use the model's build-time merge.
+    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S).$$"
     printf '%s\n' "$PREMERGED" > "$MS"
     echo "Wrote pre-merged managed-settings.json (model-merged at build time; backup kept)."
 else
     # Last resort: back up any existing file and write our fragment whole.
     if [[ -f "$MS" ]]; then
-        cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
-        echo "No JSON engine available and no pre-merged settings supplied:"
-        echo "backed up existing managed-settings.json and replaced it."
+        cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S).$$"
+        echo "Could not merge (no JSON engine, or the existing managed-settings.json is"
+        echo "not a valid JSON object) and no pre-merged settings were supplied:"
+        echo "backed up the existing file and replaced it."
     fi
     printf '%s\n' "$FRAGMENT" > "$MS"
 fi

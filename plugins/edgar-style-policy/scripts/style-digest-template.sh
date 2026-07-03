@@ -14,7 +14,9 @@
 # canonical directive — the one artifact that can drift from the source.
 # Review it against the directive on every canonical edit. Keep it
 # declarative: system-voice commands in injected context can trip
-# prompt-injection defenses. Target 60–80 tokens.
+# prompt-injection defenses. Target 60–80 tokens. The digest text must not
+# contain a line consisting solely of "EOF" — it would terminate the heredoc
+# below early and truncate the deployed hook.
 cat <<'EOF'
 __DIGEST_TEXT__
 EOF
