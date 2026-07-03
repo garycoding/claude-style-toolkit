@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 # claude-style-toolkit
 
 A Claude Code plugin marketplace for writing-style policy. The first
-plugin, `style-policy`, bundles two skills:
+plugin, `edgar-style-policy`, bundles three skills:
 
 - **style-author** — guides you through creating a writing-style
   directive Claude will actually follow: intake by interview or by
@@ -35,7 +35,7 @@ sessions.
 
 ```
 /plugin marketplace add garycoding/claude-style-toolkit
-/plugin install style-policy@claude-style-toolkit
+/plugin install edgar-style-policy@claude-style-toolkit
 ```
 
 For this private repo, marketplace add works when `gh auth login` (or an
@@ -45,8 +45,9 @@ marketplace refresh.
 Then invoke the skills as:
 
 ```
-/style-policy:style-author
-/style-policy:style-maintain
+/edgar-style-policy:style-author
+/edgar-style-policy:style-maintain
+/edgar-style-policy:style-uninstall
 ```
 
 ## Deployment tiers
@@ -95,7 +96,7 @@ with `uvx --from "reuse[charset-normalizer]" reuse lint`.
 
 ```
 .claude-plugin/marketplace.json
-plugins/style-policy/
+plugins/edgar-style-policy/
 ├── .claude-plugin/plugin.json
 ├── skills/
 │   ├── style-author/

@@ -1,0 +1,10 @@
+{
+  "name": "edgar-style-policy",
+  "description": "Author, deploy, maintain, and remove a writing-style directive as layered Claude Code policy: guided authoring (interview or exemplar-derived), contradiction and fresh-eyes review, digest generation, user-tier or managed-tier installation, troubleshooting, and uninstall.",
+  "version": "0.1.0",
+  "author": {
+    "name": "garycoding"
+  },
+  "license": "MIT OR Apache-2.0",
+  "keywords": ["writing-style", "style-guide", "policy", "CLAUDE.md", "output-style"]
+}
