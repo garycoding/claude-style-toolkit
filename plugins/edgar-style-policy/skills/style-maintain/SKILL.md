@@ -1,6 +1,6 @@
 ---
 name: style-maintain
-description: Review, verify, troubleshoot, update, and remove an installed writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (CLAUDE.md, output style, digest hook, lint hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, redeploys to the installed tier, and supports uninstall or migration between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, uninstall, or move their writing style policy or style enforcement setup.
+description: Review, verify, troubleshoot, and update an installed writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (CLAUDE.md, output style, digest hook, lint hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, redeploys to the installed tier, and migrates between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, or move (migrate) their writing style policy or style enforcement setup. For removing a policy, use the style-uninstall skill instead.
 ---
 
 # Style-policy maintenance
@@ -22,20 +22,32 @@ Determine which tier is installed and where the canonical file lives:
 - **User tier**: `~/.claude/writing-style.md`, an `@~/.claude/writing-style.md`
   import line in `~/.claude/CLAUDE.md`, `~/.claude/output-styles/*.md`,
   `~/.claude/hooks/`, and `outputStyle` + hook entries in
-  `~/.claude/settings.json`.
+  `~/.claude/settings.json`. Note that `~/.claude/writing-style.md` is a
+  deployed copy generated from the canonical, not the canonical itself —
+  never hand-edit it.
 
-Record the tier — later phases (redeploy, uninstall, migrate) branch on
-it. Ask the user where the canonical (editable) copy of the directive
-lives — typically a git repo. If the canonical file cannot be found, stop
-and resolve that first: everything else is generated from it.
+Record the tier — later phases (redeploy, migrate) branch on it. Ask the
+user where the canonical (editable) copy of the directive lives —
+typically a git repo. If it cannot be found, offer to seed a new
+canonical from the deployed directive copy (`~/.claude/writing-style.md`
+on the user tier, `<managed dir>/CLAUDE.md` on the managed tier), which is
+byte-identical to the canonical body; note that this loses any prior git
+history. Do not proceed with edits until a canonical exists — everything
+is generated from it.
 
 ## Phase 2 — Integrity audit
 
 Report each check as pass/fail with the evidence:
 
-1. **Drift**: `diff` the deployed CLAUDE.md and the output-style body
-   against the canonical file. Any difference means a deploy was missed
-   after an edit — the fix is redeploy, never hand-editing deployed
+1. **Drift**: diff every deployed copy of the directive against the
+   canonical. On the managed tier that is `<managed dir>/CLAUDE.md`; on
+   the user tier it is `~/.claude/writing-style.md` (the deployed
+   `~/.claude/CLAUDE.md` holds only the `@import` line, not the directive
+   body — do not diff it). On both tiers also diff the output-style
+   body, stripping its leading YAML frontmatter (everything through the
+   second `---`) first, since the frontmatter is added at deploy time and
+   is not in the canonical. Any remaining difference means a deploy was
+   missed after an edit — the fix is redeploy, never hand-editing deployed
    copies.
 2. **Digest review**: read the digest text in the deployed
    `style-digest.sh` against the current directive. The digest is
@@ -67,8 +79,9 @@ order and stop at the first cause found:
 
 1. **Stale session.** The output style and managed settings are fixed at
    session start. If the policy was just installed or changed, the
-   current session predates it — have the user start a fresh session
-   (`/clear` or restart) and recheck.
+   current session predates it — have the user fully quit and restart
+   Claude Code (`/clear` alone does not reload the output style or managed
+   settings; it only clears the transcript) and recheck.
 2. **Not actually active.** Run Phases 2–3. If the directive is not in
    context or the output style is not applied, the install is broken or
    incomplete — go to Phase 7 and redeploy.
@@ -91,9 +104,11 @@ Run this after any Claude Code upgrade, or as step 4 of troubleshooting.
 The policy depends on Claude Code mechanics that change between versions:
 
 1. **Managed source** (managed tier): run `/status` and confirm the
-   active managed source is the file-based enterprise settings. If it
-   reads as remote or server-managed, an org admin console has displaced
-   the local file tier, which is now inert.
+   active managed source is the file-based managed tier — the one the
+   toolkit's installer writes. If it reads as remote or server-managed, an
+   org admin console has displaced the local file tier, which is now
+   inert (distinct from the file-based managed tier throughout this
+   skill).
 2. **Output-style support**: confirm `outputStyle` is still honored (ask
    Claude whether the named style is active). The switching command has
    changed across versions; the setting is the supported path, but
@@ -127,11 +142,14 @@ Then rework the directive by the style-author method: the
 rule/test/example-pair template, the calibration principle (additions
 must pay for themselves; trimming counts as much as adding), one change
 per verdict. A banned-phrase-only change is a common, low-stakes case —
-it updates the Diction section and the lint's `BANNED_PHRASES`, and needs
-a redeploy of the lint but no digest change. For a broader revision,
-offer a fresh-eyes pass: spawn the reviewer lenses from `style-author`'s
-`resources/review-lenses.md` against the reworked directive and present
-surviving findings ranked.
+it updates the Diction section and the lint's `BANNED_PHRASES`; the
+redeploy still re-stages all three files (Phase 7), with the digest
+re-staged unchanged. For a broader revision, offer a fresh-eyes pass:
+spawn the reviewer lenses from `style-author`'s
+`resources/review-lenses.md` against the reworked directive. The
+compliance-simulation lens needs `{SCENARIOS}` — reuse the scenarios
+recorded with the directive, or ask the user for 4–5 current real
+scenarios before spawning it. Present surviving findings ranked.
 
 Present the reworked directive and iterate — review findings or freeform
 edits, one decision per exchange — until the user is pleased with the
@@ -144,9 +162,12 @@ After any canonical edit, in order:
 1. **Review the digest** against the reworked directive (Phase 2,
    check 2). Mandatory — the digest is the one artifact that drifts
    silently.
-2. **Stage** into an ephemeral `mktemp -d` directory: `canonical.md`
-   (no license header), `digest.sh` and `lint.py` (from the templates,
-   SPDX headers dropped, banned-phrase list refreshed).
+2. **Stage** all three files into an ephemeral `mktemp -d` directory
+   (the installers abort if any is missing): `canonical.md` (no license
+   header), `digest.sh` and `lint.py` (from the templates, SPDX headers
+   dropped, `__DIGEST_TEXT__` and `BANNED_PHRASES` filled as in
+   style-author Phase 6). Confirm `python3` resolves first — the settings
+   merge and the lint hook require it.
 3. **Redeploy to the installed tier** (from Phase 1):
    - *User tier*: run `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh
      <staging-dir> "<Style Name>"` directly.

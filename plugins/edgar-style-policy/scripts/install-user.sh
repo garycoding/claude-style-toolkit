@@ -4,7 +4,7 @@
 #
 # User-tier installer — NO sudo required. Deploys a staged style policy
 # entirely under ~/.claude. Nothing is tamper-resistant at this tier;
-# use install-managed.sh for the root-owned variant.
+# use build-managed-installer.sh for the root-owned variant.
 #
 # Usage: ./install-user.sh <staging-dir> [style-name]
 #   <staging-dir> must contain: canonical.md, digest.sh, lint.py

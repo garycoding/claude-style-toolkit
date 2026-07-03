@@ -84,6 +84,13 @@ the template (Scope and precedence, Formatting, Compact Instructions) —
 they exist because their absence is a known failure mode, but adapt their
 content to the user.
 
+Settle two things now and reuse them verbatim in every later phase: the
+path where you save the draft (this is `{DOC_PATH}` in the review
+lenses), and a short style name agreed with the user (for example "PR
+Voice") — the installers take it as a positional argument and derive the
+output-style filename from it, so it must stay identical across install,
+maintain, and uninstall.
+
 Present the complete first draft to the user. This begins the
 back-and-forth: from here you refine the document with them — the
 contradiction pass and fresh-eyes review below, plus any change they
@@ -147,11 +154,22 @@ toolkit files. The toolkit's own repository files keep their headers;
 only what lands in the user's environment is header-free.
 
 The plugin's shared scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/`.
-Assemble a staging directory: `canonical.md` (the directive, no license
-header), `digest.sh` (from `style-digest-template.sh`, digest text
-inserted, SPDX header dropped), `lint.py` (from `style-lint-template.py`,
-the banned-phrase list from Phase 1 inserted into BANNED_PHRASES, SPDX
-header dropped). Then:
+The installers and the lint hook use `python3`; confirm it resolves
+before staging, and if it is absent, tell the user the settings merge and
+the lint hook require it and stop rather than half-install. Assemble a
+staging directory with exactly three files (the installer scripts require
+all three and abort if any is missing):
+
+- `canonical.md` — the directive, no license header.
+- `digest.sh` — copy `style-digest-template.sh`, drop its SPDX header
+  lines, and replace the `__DIGEST_TEXT__` line with the Phase 5 digest
+  text.
+- `lint.py` — copy `style-lint-template.py`, drop its SPDX header lines,
+  and populate the `BANNED_PHRASES` list with one quoted Python string
+  literal per banned phrase from Phase 1, replacing the commented
+  examples.
+
+Then:
 
 **Ask the user which tier they want before deploying — do not choose for
 them.** Present the trade-off in one exchange: the user tier is fully
@@ -197,8 +215,14 @@ no attention decay).
 
 In a fresh session after install: ask Claude whether the directive and
 output style are active (it can confirm from its own context); confirm
-the digest line arrives with a prompt; test the lint by requesting
-output that violates a banned rule and confirming the reply gets
-blocked into revision. If the user works in a desktop app, have them
-repeat the context check once in a Cowork or Code tab session. Record
-what passed in the staging directory's `VERIFIED.md`.
+the digest line arrives with a prompt; test the lint deterministically by
+running the deployed `style-lint.py` with
+`{"last_assistant_message": "<text containing a banned phrase>",
+"stop_hook_active": false}` on stdin and confirming it emits a block
+decision — do not judge the lint by asking the model to produce a
+violation, since the active style steers it away from doing so, making a
+non-block ambiguous. If the user works in a desktop app, have them repeat
+the context check once in a Cowork or Code tab session. Record what
+passed in a `VERIFIED.md` next to the canonical directive (the managed
+staging directory has already been deleted, and the user tier has no
+staging directory to keep).

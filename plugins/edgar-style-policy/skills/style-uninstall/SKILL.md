@@ -46,12 +46,14 @@ any other settings the user has are preserved.
   It assembles a self-contained `~/uninstall_claude_writing_style.sh`
   (symmetric with the installer, inspectable before running). Tell the
   user to run, in a terminal, `sudo ~/uninstall_claude_writing_style.sh`.
-  It clears the macOS immutable flag if hardening was applied, removes
-  our files, strips our keys from `managed-settings.json` (removing that
-  file only if it held nothing else), removes the managed directory only
-  if it is now empty — leaving it in place if it holds other managed
-  settings — and deletes itself on success. The harness cannot enter
-  passwords, which is why this step is the user's to run.
+  It clears the macOS immutable flag first (harmless if unset — the
+  toolkit's installers do not apply it, so this only matters if the user
+  hardened the files manually with `chflags schg`), removes our files,
+  strips our keys from `managed-settings.json` (removing that file only if
+  it held nothing else), removes the managed directory only if it is now
+  empty — leaving it in place if it holds other managed settings — and
+  deletes itself on success. The harness cannot enter passwords, which is
+  why this step is the user's to run.
 
 ## Phase 3 — Verify removal
 
