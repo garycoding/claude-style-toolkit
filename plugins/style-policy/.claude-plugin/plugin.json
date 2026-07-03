@@ -5,6 +5,6 @@
   "author": {
     "name": "garycoding"
   },
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "keywords": ["writing-style", "style-guide", "policy", "CLAUDE.md", "output-style"]
 }

@@ -48,6 +48,21 @@ The author skill deploys to either tier:
   path; the skill stages everything and prints the one `sudo` command
   for you to run yourself, since the harness cannot enter passwords.
 
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  <http://www.apache.org/licenses/LICENSE-2.0>), or
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  <http://opensource.org/licenses/MIT>)
+
+at your option. In SPDX terms: `MIT OR Apache-2.0`.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this work by you shall be dual-licensed as
+above, without any additional terms or conditions.
+
 ## Layout
 
 ```
