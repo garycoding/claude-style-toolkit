@@ -133,6 +133,9 @@ inserted, SPDX header dropped), `lint.py` (from `style-lint-template.py`,
 the banned-phrase list from Phase 1 inserted into BANNED_PHRASES, SPDX
 header dropped). Then:
 
+Stage into an ephemeral directory (`mktemp -d`), not the home directory
+or the repo. Then, by tier:
+
 - **Default — user tier, no sudo**: run
   `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh <staging-dir> "<Style Name>"`.
   It imports the directive into `~/.claude/CLAUDE.md` (append, never
@@ -140,12 +143,19 @@ header dropped). Then:
   merges both hooks into `~/.claude/settings.json` (with backup). Fully
   automatic. Honest limitation to state: nothing is tamper-resistant —
   any tool writing to `~/.claude` can alter it.
-- **Optional — managed tier**: copy
-  `${CLAUDE_PLUGIN_ROOT}/scripts/install-managed.sh` next to the staging
-  directory and print the single `sudo` command for the user to run
-  themselves in a terminal (the harness cannot enter passwords).
-  Root-owned, unoverridable, survives everything short of deliberate
-  removal.
+- **Optional — managed tier (sudo)**: run
+  `${CLAUDE_PLUGIN_ROOT}/scripts/build-managed-installer.sh <staging-dir> "<Style Name>"`.
+  It assembles ONE self-contained installer at
+  `~/install_claude_writing_style.sh` with the directive, digest, and
+  lint embedded inline (human-readable, so the user can inspect the sudo
+  script first). Then delete the `mktemp` staging directory — nothing
+  else needs to persist. Tell the user to run, in a terminal,
+  `sudo ~/install_claude_writing_style.sh`; it writes the policy
+  root-owned and deletes itself on success. No other files land in the
+  home directory, and the only residue is a timestamped backup of any
+  prior `managed-settings.json`, left in the managed directory by design.
+  The harness cannot enter passwords, which is why this last step is the
+  user's to run.
 
 Explain the four layers once, briefly: directive in CLAUDE.md (primacy,
 survives compaction), same text as output style (system prompt, highest

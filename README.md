@@ -51,8 +51,13 @@ The author skill deploys to either tier:
   fully automatic. Functional but not tamper-resistant: any tool that
   writes to `~/.claude` can alter it.
 - **Managed tier (optional)** — root-owned files at the OS managed
-  path; the skill stages everything and prints the one `sudo` command
-  for you to run yourself, since the harness cannot enter passwords.
+  path. The skill assembles one self-contained installer at
+  `~/install_claude_writing_style.sh` (directive, digest, and lint
+  embedded, so you can read the sudo script before running it) and
+  prints the single command, `sudo ~/install_claude_writing_style.sh`,
+  for you to run yourself, since the harness cannot enter passwords. The
+  installer deletes itself on success; no other files are left in your
+  home directory.
 
 ## License
 
@@ -91,6 +96,8 @@ plugins/style-policy/
 │   │   ├── SKILL.md
 │   │   └── resources/           directive template, review lenses
 │   └── style-maintain/SKILL.md
-└── scripts/                     install-user.sh, install-managed.sh,
+└── scripts/                     install-user.sh (no sudo),
+                                 build-managed-installer.sh (emits the
+                                 self-contained sudo installer),
                                  digest and lint templates
 ```
