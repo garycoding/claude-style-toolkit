@@ -35,10 +35,10 @@ It does **not** cover the writing-style directive a user produces by running the
 `style-author` skill. That document — the user's `AI_comm_and_writing_style.md`
 and the copies the installer deploys from it — is the user's own work and
 belongs solely to them. The skill is instructed never to write a license header
-into a generated directive. The banned-phrase list and digest text a user
-supplies are likewise their content, embedded as data in the deployed hook
-scripts; the license here applies to the surrounding harness code, not to that
-content.
+into a generated directive. The digest text and the judgment-review prompt a
+user's session generates are likewise their content — one embedded in the
+deployed digest hook, the other in their settings configuration; the license
+here applies to the surrounding harness code, not to that content.
 
 ## REUSE compliance
 

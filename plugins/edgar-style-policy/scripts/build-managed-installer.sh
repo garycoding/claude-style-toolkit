@@ -4,12 +4,19 @@
 #
 # Assembles a single, self-contained managed-tier installer and writes it to
 # the user's home directory as install_claude_writing_style.sh. The directive,
-# digest, and lint are embedded inline (human-readable, so the sudo script can
-# be inspected before running). The emitted installer writes root-owned policy
-# files to the OS managed directory and then deletes itself.
+# digest hook, and settings fragment (outputStyle + digest command hook + the
+# judgment-review prompt hook) are embedded inline — human-readable, so the
+# sudo script can be inspected before running. The emitted installer writes
+# root-owned policy files to the OS managed directory and deletes itself.
+#
+# Settings handling in the emitted installer: if python3 executes on the
+# target machine, our fragment is MERGED into any existing
+# managed-settings.json (other managed settings preserved; our marker-tagged
+# review hook replaced on re-install). If python3 is unavailable, the file is
+# backed up and replaced with the fragment.
 #
 # Usage: build-managed-installer.sh <staging-dir> [style-name] [output-path]
-#   <staging-dir>  must contain: canonical.md, digest.sh, lint.py
+#   <staging-dir>  must contain: canonical.md, digest.sh, review-prompt.txt
 #   [style-name]   default: "Writing Style"
 #   [output-path]  default: $HOME/install_claude_writing_style.sh
 set -euo pipefail
@@ -17,19 +24,55 @@ set -euo pipefail
 STAGING="${1:?Usage: build-managed-installer.sh <staging-dir> [style-name] [output-path]}"
 STYLE_NAME="${2:-Writing Style}"
 OUTPUT="${3:-${HOME}/install_claude_writing_style.sh}"
+case "$STYLE_NAME" in
+    *$'\n'*) echo "Style name must not contain newlines." >&2; exit 1 ;;
+    \"*)     echo "Style name must not start with a quote." >&2; exit 1 ;;
+esac
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
+[[ -n "$SLUG" ]] || SLUG="writing-style"
 
-for f in canonical.md digest.sh lint.py; do
+for f in canonical.md digest.sh review-prompt.txt; do
     [[ -f "${STAGING}/${f}" ]] || { echo "Missing ${STAGING}/${f}" >&2; exit 1; }
 done
+python3 -c 'import json' >/dev/null 2>&1 || {
+    echo "python3 is required on THIS machine to build the installer (it JSON-encodes the review prompt)." >&2
+    exit 1
+}
 
-# Collision guard: a payload must not contain the heredoc sentinel that will
-# wrap it, or the emitted installer would terminate the block early.
+# Collision guard: payloads must not contain the heredoc sentinels wrapping them.
 guard() { grep -qF "$2" "$1" && { echo "Payload $1 contains sentinel $2; aborting." >&2; exit 1; } || true; }
-guard "${STAGING}/canonical.md" "__CS_DIRECTIVE_EOF__"
-guard "${STAGING}/canonical.md" "__CS_STYLE_EOF__"
-guard "${STAGING}/digest.sh"    "__CS_DIGEST_EOF__"
-guard "${STAGING}/lint.py"      "__CS_LINT_EOF__"
+for s in __CS_DIRECTIVE_EOF__ __CS_STYLE_EOF__ __CS_DIGEST_EOF__ __CS_FRAG_EOF__; do
+    guard "${STAGING}/canonical.md" "$s"
+    guard "${STAGING}/digest.sh" "$s"
+    guard "${STAGING}/review-prompt.txt" "$s"
+done
+
+# Build the settings fragment at build time: valid JSON with the review
+# prompt safely encoded; the hooks path is a placeholder substituted per-OS
+# at run time (it contains no JSON-active characters on either OS).
+FRAGMENT=$(python3 - "$STYLE_NAME" "${STAGING}/review-prompt.txt" <<'PY'
+import json, sys
+style, prompt_path = sys.argv[1], sys.argv[2]
+MARKER = "[writing-style-policy]"
+with open(prompt_path, encoding="utf-8") as f:
+    prompt = f.read().strip()
+if not prompt.startswith(MARKER):
+    prompt = MARKER + " " + prompt
+frag = {
+    "outputStyle": style,
+    "hooks": {
+        "UserPromptSubmit": [
+            {"hooks": [{"type": "command",
+                        "command": "\"__CS_HOOKS_DIR__/style-digest.sh\""}]}
+        ],
+        "Stop": [
+            {"hooks": [{"type": "prompt", "prompt": prompt}]}
+        ],
+    },
+}
+print(json.dumps(frag, indent=2))
+PY
+)
 
 {
     cat <<'HDR'
@@ -46,7 +89,7 @@ HDR
     cat <<'BODY1'
 case "$(uname -s)" in
     Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"; GROUP="wheel"
-            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | awk '{print $2}') ;;
+            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | sed 's/^[^:]*: //') ;;
     Linux)  MANAGED_DIR="/etc/claude-code"; GROUP="root"
             USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6) ;;
     *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
@@ -68,43 +111,74 @@ BODY1
     printf 'cat > "${HOOKS_DIR}/style-digest.sh" <<'\''__CS_DIGEST_EOF__'\''\n'
     cat "${STAGING}/digest.sh"
     printf '\n__CS_DIGEST_EOF__\n'
-    # Lint hook.
-    printf 'cat > "${HOOKS_DIR}/style-lint.py" <<'\''__CS_LINT_EOF__'\''\n'
-    cat "${STAGING}/lint.py"
-    printf '\n__CS_LINT_EOF__\n'
+    # Settings fragment (built and JSON-validated at build time).
+    printf 'FRAGMENT=$(cat <<'\''__CS_FRAG_EOF__'\''\n'
+    printf '%s\n' "$FRAGMENT"
+    printf '__CS_FRAG_EOF__\n)\n'
     cat <<'BODY2'
-chmod 0755 "${HOOKS_DIR}/style-digest.sh" "${HOOKS_DIR}/style-lint.py"
+chmod 0755 "${HOOKS_DIR}/style-digest.sh"
+FRAGMENT="${FRAGMENT//__CS_HOOKS_DIR__/${HOOKS_DIR}}"
 
 MS="${MANAGED_DIR}/managed-settings.json"
-if [[ -f "$MS" ]]; then
-    cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
-    echo "Backed up existing managed-settings.json"
+if python3 -c 'import json' >/dev/null 2>&1; then
+    # Merge path: preserve any other managed settings; replace our own
+    # marker-tagged review hook and digest entry so re-installs update them.
+    if [[ -f "$MS" ]]; then cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"; fi
+    FRAGMENT="$FRAGMENT" python3 - "$MS" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+frag = json.loads(os.environ["FRAGMENT"])
+MARKER = "[writing-style-policy]"
+data = {}
+if os.path.exists(path):
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+data["outputStyle"] = frag["outputStyle"]
+hooks = data.setdefault("hooks", {})
+digest_cmd = frag["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+groups = hooks.setdefault("UserPromptSubmit", [])
+if not any(h.get("command") == digest_cmd
+           for g in groups for h in g.get("hooks", [])):
+    groups.append(frag["hooks"]["UserPromptSubmit"][0])
+stop = hooks.get("Stop", [])
+kept = []
+for g in stop:
+    hs = [h for h in g.get("hooks", [])
+          if not (h.get("type") == "prompt"
+                  and str(h.get("prompt", "")).startswith(MARKER))]
+    if hs:
+        kept.append({**g, "hooks": hs})
+kept.append(frag["hooks"]["Stop"][0])
+hooks["Stop"] = kept
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+    echo "Merged policy into managed-settings.json (other managed settings preserved)."
+else
+    # No python3: back up any existing file and write our fragment whole.
+    if [[ -f "$MS" ]]; then
+        cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
+        echo "python3 not available: backed up existing managed-settings.json and replaced it."
+        echo "(Install Command Line Tools and re-run to merge instead.)"
+    fi
+    printf '%s\n' "$FRAGMENT" > "$MS"
 fi
-cat > "$MS" <<JSON
-{
-  "outputStyle": "${STYLE_NAME}",
-  "hooks": {
-    "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "\"${HOOKS_DIR}/style-digest.sh\"" } ] } ],
-    "Stop": [ { "hooks": [ { "type": "command", "command": "\"${HOOKS_DIR}/style-lint.py\"" } ] } ]
-  }
-}
-JSON
 
 # Root-own the whole tree, then set file modes.
 chown -R "root:${GROUP}" "$MANAGED_DIR"
 chmod 0644 "${MANAGED_DIR}/CLAUDE.md" "$MS" "${STYLE_DIR}/${SLUG}.md"
 
 echo "Installed (managed tier) to ${MANAGED_DIR} for style: ${STYLE_NAME}"
-echo "Start a fresh Claude Code session, then verify:"
+echo "Fully quit and restart Claude Code (a /clear is not enough), then verify:"
 echo "  1. Ask Claude whether a managed CLAUDE.md and the '${STYLE_NAME}'"
 echo "     output style are active (it can confirm both from its context)."
 echo "  2. Confirm the digest line arrives with each prompt."
-echo "  3. Request output violating a banned rule; the lint should block it."
+echo "  3. The review hook was sandbox-tested before install; in live use it"
+echo "     revises replies that break the rules."
 
-SELF="${USER_HOME}/install_claude_writing_style.sh"
-if [[ -f "$SELF" ]]; then
-    rm -f "$SELF" && echo "Removed installer: $SELF"
-fi
+SELF="$0"
+rm -f "$SELF" && echo "Removed installer: $SELF"
 BODY2
 } > "$OUTPUT"
 chmod 0755 "$OUTPUT"

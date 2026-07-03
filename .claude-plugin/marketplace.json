@@ -8,7 +8,7 @@
     {
       "name": "edgar-style-policy",
       "source": "./plugins/edgar-style-policy",
-      "description": "Author a writing-style directive (from interview or exemplar documents), deploy it as layered policy, and maintain it."
+      "description": "Author a writing-style directive (from interview or exemplar documents), deploy it as layered policy with judgment-based review, maintain it, and uninstall it."
     }
   ]
 }

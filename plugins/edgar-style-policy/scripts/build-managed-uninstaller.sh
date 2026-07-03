@@ -5,10 +5,12 @@
 # Assembles a self-contained managed-tier uninstaller and writes it to the
 # user's home directory as uninstall_claude_writing_style.sh. The harness
 # cannot elevate, so the user runs it: sudo ~/uninstall_claude_writing_style.sh
-# The emitted uninstaller removes only our files and our keys from
-# managed-settings.json, leaves any other managed settings intact, clears the
-# macOS immutable flag if present, removes the managed directory only if empty,
-# and deletes itself.
+# The emitted uninstaller performs the settings surgery FIRST (removing only
+# our keys: the digest hook by filename, the review hook by its
+# "[writing-style-policy]" marker, and outputStyle if it names our style),
+# then removes our files, then removes the managed directory only if empty,
+# and deletes itself. python3 is required for the surgery; without it the
+# uninstaller aborts before touching anything.
 #
 # Usage: build-managed-uninstaller.sh [style-name] [output-path]
 set -euo pipefail
@@ -16,6 +18,7 @@ set -euo pipefail
 STYLE_NAME="${1:-Writing Style}"
 OUTPUT="${2:-${HOME}/uninstall_claude_writing_style.sh}"
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
+[[ -n "$SLUG" ]] || SLUG="writing-style"
 
 {
     cat <<'HDR'
@@ -32,7 +35,7 @@ HDR
     cat <<'BODY'
 case "$(uname -s)" in
     Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"
-            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | awk '{print $2}') ;;
+            USER_HOME=$(dscl . -read "/Users/${TARGET_USER}" NFSHomeDirectory | sed 's/^[^:]*: //') ;;
     Linux)  MANAGED_DIR="/etc/claude-code"
             USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6) ;;
     *) echo "Unsupported OS: $(uname -s)" >&2; exit 1 ;;
@@ -41,23 +44,26 @@ HOOKS_DIR="${MANAGED_DIR}/hooks"
 STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
 STAMP=$(date +%Y%m%d%H%M%S)
 
-# Clear the macOS immutable flag if optional hardening was applied.
+python3 -c 'import json' >/dev/null 2>&1 || {
+    echo "python3 is required for the settings cleanup (on macOS: xcode-select --install)." >&2
+    echo "Nothing has been changed." >&2
+    exit 1
+}
+
+# Clear the macOS immutable flag if the user hardened files manually.
 if [[ "$(uname -s)" == "Darwin" ]]; then
     chflags -R noschg "$MANAGED_DIR" 2>/dev/null || true
 fi
 
-rm -f "${MANAGED_DIR}/CLAUDE.md" \
-      "${HOOKS_DIR}/style-digest.sh" \
-      "${HOOKS_DIR}/style-lint.py" \
-      "${STYLE_DIR}/${SLUG}.md"
-
-# Remove our keys from managed-settings.json, leaving any other settings.
+# Settings surgery FIRST: strip only our keys, preserving anything else.
 MS="${MANAGED_DIR}/managed-settings.json"
+OURS_ONLY=0
 if [[ -f "$MS" ]]; then
     cp "$MS" "${MS}.bak.${STAMP}"
-    python3 - "$MS" "$HOOKS_DIR" "$STYLE_NAME" <<'PY'
+    python3 - "$MS" "$STYLE_NAME" <<'PY'
 import json, sys
-path, hooks_dir, style = sys.argv[1], sys.argv[2], sys.argv[3]
+path, style = sys.argv[1], sys.argv[2]
+MARKER = "[writing-style-policy]"
 with open(path, encoding="utf-8") as f:
     d = json.load(f)
 if d.get("outputStyle") == style:
@@ -66,7 +72,10 @@ hooks = d.get("hooks", {})
 for ev in ("UserPromptSubmit", "Stop"):
     kept = []
     for g in hooks.get(ev, []):
-        hs = [h for h in g.get("hooks", []) if hooks_dir not in (h.get("command") or "")]
+        hs = [h for h in g.get("hooks", [])
+              if "style-digest.sh" not in (h.get("command") or "")
+              and not (h.get("type") == "prompt"
+                       and str(h.get("prompt", "")).startswith(MARKER))]
         if hs:
             kept.append({**g, "hooks": hs})
     if kept:
@@ -81,14 +90,21 @@ with open(path, "w", encoding="utf-8") as f:
     json.dump(d, f, indent=2)
     f.write("\n")
 PY
-    # If nothing but empty braces remain, the file was ours alone — remove it.
+    # If nothing but empty braces remain, the file was ours alone: remove it
+    # and this run's backup, so an empty directory can actually be removed.
     if [[ "$(tr -d '[:space:]' < "$MS")" == "{}" ]]; then
-        rm -f "$MS"
+        rm -f "$MS" "${MS}.bak.${STAMP}"
+        OURS_ONLY=1
     fi
 fi
 
-# Remove now-empty policy directories; leave the managed dir if it holds
-# anything else (non-policy managed settings, other backups the user keeps).
+# Now the files.
+rm -f "${MANAGED_DIR}/CLAUDE.md" \
+      "${HOOKS_DIR}/style-digest.sh" \
+      "${STYLE_DIR}/${SLUG}.md"
+
+# Remove now-empty policy directories; leave the managed dir in place if it
+# still holds anything (other managed settings, older backups).
 rmdir "$STYLE_DIR" "${MANAGED_DIR}/.claude" "$HOOKS_DIR" 2>/dev/null || true
 if rmdir "$MANAGED_DIR" 2>/dev/null; then
     echo "Removed managed policy directory: ${MANAGED_DIR}"
@@ -98,12 +114,10 @@ fi
 
 echo "Uninstalled managed-tier policy for style: ${STYLE_NAME}"
 echo "The canonical directive in your repo is untouched; reinstall anytime."
-echo "Start a fresh session; the style is no longer applied."
+echo "Fully quit and restart Claude Code; the style is no longer applied."
 
-SELF="${USER_HOME}/uninstall_claude_writing_style.sh"
-if [[ -f "$SELF" ]]; then
-    rm -f "$SELF" && echo "Removed uninstaller: $SELF"
-fi
+SELF="$0"
+rm -f "$SELF" && echo "Removed uninstaller: $SELF"
 BODY
 } > "$OUTPUT"
 chmod 0755 "$OUTPUT"
