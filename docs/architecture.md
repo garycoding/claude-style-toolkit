@@ -58,7 +58,10 @@ how the uninstallers identify our hook among any others.
 
 ```
 Toolkit repo (this repo)         skills, templates, scripts, json-tool.sh
-Staging (mktemp, ephemeral)      canonical.md, digest.sh, review-prompt.txt
+Style library (~/.claude/         one folder per style, <slug>/: canonical.md,
+  edgar-style-policies)          digest.sh, review-prompt.txt, VERIFIED.md — the
+                                 persistent bundle that also serves as the
+                                 installer's staging directory
 User tier (~/.claude)            writing-style.md, @import line in CLAUDE.md,
                                  output-styles/<slug>.md, hooks/style-digest.sh,
                                  settings.json entries (outputStyle, digest
@@ -75,10 +78,45 @@ Home directory (transient)       install_claude_writing_style.sh /
 
 The style name chosen at authoring is load-bearing: the installers take
 it as an argument, the slug (output-style filename) derives from it, and
-the uninstallers compare it against `outputStyle`. It must stay
-identical across install, maintenance, and removal; `VERIFIED.md`,
-written next to the canonical, records it along with the tier, the
+the uninstallers compare it against `outputStyle`, and it keys the style
+library (the `<slug>` folder name). It must stay identical across
+authoring, switching, maintenance, and removal; `VERIFIED.md`, written
+into the style's library folder (and beside the canonical too, if a
+separate repo master is kept), records it along with the tier, the
 canonical path, and the intake scenarios.
+
+## The style library and switching
+
+Authored styles are kept, one folder per style, under
+`~/.claude/edgar-style-policies/<slug>/`, each a full deployable bundle:
+`canonical.md`, `digest.sh`, `review-prompt.txt`, and `VERIFIED.md`. The
+three deployable files are exactly the installer's staging inputs, so a
+style's library folder is at once its permanent record and its staging
+directory — no separate `mktemp` is used for authoring, maintenance, or
+switching.
+
+There is no separate registry of stored styles or of which is active. The
+set of styles is the set of library folders; the active style is whichever
+the live `outputStyle` names, matched back to a folder by the display name
+in its `VERIFIED.md`. A derived pointer cannot fall out of sync with a
+stored one.
+
+Switching is redeploy, not a new mechanism. Because a single install run
+already repoints all four layers coherently in one settings merge,
+switching to a stored style is exactly: point the tier's installer at that
+style's library folder and run it. Nothing is made dynamic; the four
+layers are rewritten, and session-start binding means a restart is
+required regardless, so pre-deploying inactive layers would gain nothing.
+Only one style is active at a time — the previous style's
+`output-styles/<old-slug>.md` file stays on disk but is inert, since
+`outputStyle` selects by name. At the user tier a switch is automatic and
+needs no elevation; at the managed tier it is one `sudo` per switch by
+nature, which is why a switching workflow is most ergonomic at the user
+tier while the managed tier suits a locked house style. A switch is not
+transactional: the installer backs up settings and writes each layer, so
+an interruption can leave the directive swapped while `outputStyle` still
+names the previous style; recovery is re-running the same idempotent
+installer, and the post-restart verification catches a partial apply.
 
 ## The JSON engine ladder
 
@@ -146,17 +184,18 @@ scope/precedence) and a fresh-eyes review by three context-free
 subagents; generate digest and review prompt; check for an existing
 installation (deploying user-tier under a live managed policy silently
 never activates); sandbox-test the review prompt; ask the user's tier;
-stage into mktemp; run `install-user.sh` directly or emit the sudo
-installer; delete staging; verify in a fully restarted session (a
-`/clear` does not reload session-fixed layers); record `VERIFIED.md`.
+stage into the style's library folder (which persists as its bundle); run
+`install-user.sh` directly or emit the sudo installer; verify in a fully
+restarted session (a `/clear` does not reload session-fixed layers);
+record `VERIFIED.md` in the library folder.
 
 **Update** (`style-maintain`): audit first — deployed copies diffed
 against the canonical (normalizing packaging newlines), both
 condensations reviewed, ownership and settings entries checked, live
 layers confirmed. Rework from evidence: new exemplars and concrete
 unwanted behaviors, one change per verdict, to the user's satisfaction.
-Redeploy: re-review both condensations, re-stage all three files, rerun
-the tier's installer, restart, re-verify. Troubleshooting and the
+Redeploy: re-review both condensations, re-stage into the library folder
+(refreshing its bundle), rerun the tier's installer, restart, re-verify. Troubleshooting and the
 platform-health check (managed source via `/status`, output-style
 support, plugin overrides, hook execution) live here too.
 
@@ -173,6 +212,14 @@ with it. The canonical directive is never touched.
 **Migrate** (`style-maintain`): deploy the target tier first, verify it,
 then remove the old tier with the uninstall machinery — the machine is
 never left with no policy mid-migration.
+
+**Switch** (`style-switch`): list the library (its folders, the active one
+marked by the live `outputStyle`); resolve the target name to its folder,
+refusing an incomplete bundle or the already-active style; detect the
+installed tier; run that tier's installer against the target's library
+folder (automatic at the user tier, the emitted sudo installer at the
+managed tier); restart and verify. It deploys nothing new — it reuses the
+same installers over a stored bundle.
 
 ## Invariants
 
@@ -191,6 +238,11 @@ never left with no policy mid-migration.
   last resort.
 - Every settings write is preceded by a timestamped backup.
 - Model-produced JSON is never deployed unvalidated.
+- Authored styles persist in the library (`~/.claude/edgar-style-policies/`)
+  independently of what is deployed; uninstall removes the active
+  deployment but never the library, so a removed style can be switched
+  back. The active style's library bundle equals the live deployment,
+  audited on maintenance, so switching away and back is a no-op.
 - Generated user content — the directive, its deployed copies, the
   digest, the review prompt — carries no license; it is the user's own
   work (see LICENSING.md).

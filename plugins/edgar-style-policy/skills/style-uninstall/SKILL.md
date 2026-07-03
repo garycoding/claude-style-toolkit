@@ -15,9 +15,12 @@ is not migrating between tiers; migration lives in `style-maintain`.
 Uninstalling is destructive, so confirm intent explicitly before acting.
 Tell the user plainly what will and will not happen: the deployed policy
 files and settings entries are removed; their canonical directive
-(typically a git repo, recorded in `VERIFIED.md`) is untouched; the
-change takes effect after fully quitting and restarting Claude Code,
-since the current session was fixed at start.
+(typically a git repo, recorded in `VERIFIED.md`) is untouched; the style
+library under `~/.claude/edgar-style-policies/` (every stored bundle,
+including this one) is untouched, so the style can be reinstalled or
+switched back later with `style-author` or `style-switch`; the change
+takes effect after fully quitting and restarting Claude Code, since the
+current session was fixed at start.
 
 Then detect the installed tier (as in `style-maintain`, Phase 1):
 

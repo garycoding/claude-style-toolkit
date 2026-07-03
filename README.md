@@ -15,6 +15,10 @@ A Claude Code plugin marketplace for writing-style policy. The plugin,
   the rule/test/example-pair template, a contradiction pass, an
   independent fresh-eyes review, generation of the per-prompt digest and
   the judgment-review prompt, and deployment.
+- **style-switch** — keeps a local library of the styles you author and
+  switches the active one by name, re-deploying the chosen style through
+  the same installers (user tier automatic, managed tier one sudo),
+  effective after a restart.
 - **style-maintain** — audits an installed policy (drift between
   canonical and deployed copies, condensation staleness, ownership,
   live-layer checks), troubleshoots why a style is not being followed,
@@ -93,6 +97,7 @@ Then invoke the skills as:
 
 ```
 /edgar-style-policy:style-author
+/edgar-style-policy:style-switch
 /edgar-style-policy:style-maintain
 /edgar-style-policy:style-uninstall
 ```
@@ -128,6 +133,22 @@ and scenarios), invoke `style-author`, and say the directive is finished
 — it skips straight to digest/deploy. Install-time JSON work uses
 whichever engine the machine has (python3, osascript, or node); nothing
 at runtime depends on any of them.
+
+## Style library and switching
+
+Every style `style-author` creates is stored as a deployable bundle in its
+own folder under `~/.claude/edgar-style-policies/<slug>/` (`canonical.md`,
+`digest.sh`, `review-prompt.txt`, `VERIFIED.md`). The `style-switch` skill
+lists that library and re-activates any stored style by name.
+
+Switching is not on-the-fly. It re-deploys the chosen style through the
+same installers, so it takes effect only after a full restart, and the
+managed tier still costs one sudo per switch — which makes the user tier
+the ergonomic home for a workflow that switches often. Only one style is
+active at a time: the one the live `outputStyle` names. The switch repoints
+all four layers together; the previous style's output-style file is left on
+disk but inert, and its library folder is untouched, so switching back is
+another `style-switch`. Invoke it as `/edgar-style-policy:style-switch`.
 
 ## Update workflow
 
@@ -191,6 +212,7 @@ plugins/edgar-style-policy/
 │   │   ├── SKILL.md
 │   │   └── resources/           directive template, review lenses,
 │   │                            review-prompt template
+│   ├── style-switch/SKILL.md
 │   ├── style-maintain/SKILL.md
 │   └── style-uninstall/SKILL.md
 └── scripts/                     json-tool.sh (shared JSON engine ladder),

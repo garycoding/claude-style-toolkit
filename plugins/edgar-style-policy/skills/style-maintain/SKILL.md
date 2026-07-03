@@ -38,6 +38,17 @@ the canonical body up to a trailing newline; note that this loses any
 prior git history. Do not proceed with edits until a canonical exists —
 everything is generated from it.
 
+**The style library.** Authored styles are stored as deployable bundles,
+one folder per style, under `~/.claude/edgar-style-policies/<slug>/`
+(`canonical.md`, `digest.sh`, `review-prompt.txt`, `VERIFIED.md`). The set
+of stored styles is those folders; the ACTIVE style is whichever the live
+`outputStyle` names. For a style in the library, treat its folder's
+`canonical.md` as the editable source; if the user keeps a separate repo
+master, `VERIFIED.md` records the path and the two must be kept in step.
+Switching the active style among stored ones belongs to the `style-switch`
+skill; this skill audits, reworks, and redeploys a style, refreshing its
+library bundle when it does.
+
 ## Phase 2 — Integrity audit
 
 Report each check as pass/fail with the evidence:
@@ -66,6 +77,13 @@ Report each check as pass/fail with the evidence:
 4. **Settings**: `outputStyle` names the installed style; the digest
    command hook points at an existing executable file; exactly one
    marker-tagged review prompt hook is present.
+5. **Library bundle** (if the active style is in the library): its folder
+   `~/.claude/edgar-style-policies/<slug>/` should hold `canonical.md`,
+   `digest.sh`, and `review-prompt.txt` matching the live deployment (after
+   normalizing boundary blank lines). That folder is what `style-switch`
+   redeploys, so a divergence means switching away and back would silently
+   change the policy; the fix is to refresh the bundle (Phase 7), never to
+   hand-edit deployed copies.
 
 ## Phase 3 — Live verification
 
@@ -180,21 +198,24 @@ After any canonical edit, in order:
    2, check 2): the digest and the review prompt. Mandatory — they are
    the artifacts that drift silently. Sandbox-test the review prompt if
    it changed (style-author Phase 6 method).
-2. **Stage** all three files into an ephemeral `mktemp -d` directory
-   (the installers abort if any is missing): `canonical.md` (no license
-   header), `digest.sh` (from the template, leading comment block
-   dropped, `__DIGEST_TEXT__` filled), `review-prompt.txt` (marker
-   first). The installers use whichever JSON engine the machine has —
-   python3, osascript (macOS), or node. Only if none exists, perform
-   the merge yourself per style-author Phase 6's fallback (model-merge,
-   mechanical validation, pre-merged file passed to the managed
-   builder's fourth argument or written directly on the user tier).
+2. **Stage into the style's library folder**
+   `~/.claude/edgar-style-policies/<slug>/` (not an ephemeral `mktemp -d`),
+   refreshing the persistent bundle in the same act as the redeploy. Write
+   the three files the installers require, aborting if any is missing:
+   `canonical.md` (no license header), `digest.sh` (from the template,
+   leading comment block dropped, `__DIGEST_TEXT__` filled), and
+   `review-prompt.txt` (marker first). The installers use whichever JSON
+   engine the machine has — python3, osascript (macOS), or node. Only if
+   none exists, perform the merge yourself per style-author Phase 6's
+   fallback (model-merge, mechanical validation, pre-merged file passed to
+   the managed builder's fourth argument or written directly on the user
+   tier).
 3. **Redeploy to the installed tier** (from Phase 1):
    - *User tier*: run `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh
-     <staging-dir> "<Style Name>"` directly.
+     ~/.claude/edgar-style-policies/<slug> "<Style Name>"` directly.
    - *Managed tier*: run
      `${CLAUDE_PLUGIN_ROOT}/scripts/build-managed-installer.sh
-     <staging-dir> "<Style Name>"` to assemble the self-contained
+     ~/.claude/edgar-style-policies/<slug> "<Style Name>"` to assemble the self-contained
      `~/install_claude_writing_style.sh`, then have the user run
      `sudo ~/install_claude_writing_style.sh`. It merges into any
      existing managed-settings.json when any JSON engine is available
@@ -204,9 +225,10 @@ After any canonical edit, in order:
    timestamped `managed-settings.json.bak` (managed) or
    `settings.json.bak` (user); offer to remove old ones, keeping the most
    recent.
-5. **Delete the staging directory**, have the user fully quit and
-   restart Claude Code, and repeat Phase 3. Update `VERIFIED.md` with
-   what changed and what was verified.
+5. **Keep the library folder** (it is the permanent bundle, now refreshed);
+   have the user fully quit and restart Claude Code, and repeat Phase 3.
+   Update the `VERIFIED.md` in that folder with what changed and what was
+   verified.
 
 ## Phase 8 — Migrate between tiers
 

@@ -33,6 +33,13 @@ directive.
 - **The user owns the content.** You own the structure and the process.
   When their preference conflicts with your advice, say so once, then
   follow their verdict.
+- **The style library.** Every authored style is stored as a persistent
+  deployable bundle in its own folder under
+  `~/.claude/edgar-style-policies/<slug>/` (`canonical.md`, `digest.sh`,
+  `review-prompt.txt`, `VERIFIED.md`), so the user can keep several named
+  styles and switch between them with the `style-switch` skill. Naming is
+  therefore load-bearing: the style name keys the library and must stay
+  identical across author, switch, maintain, and uninstall.
 
 ## Phase 0 — Gather source material
 
@@ -101,8 +108,10 @@ content to the user.
 Settle three things now and reuse them verbatim in every later phase:
 the canonical path where the directive lives — this is `{DOC_PATH}` for
 the review lenses, and it must be somewhere durable the user can find
-again (their repo if they have one; otherwise default to
-`~/Documents/writing-style/AI_comm_and_writing_style.md`); a short style
+again (their repo if they have one; otherwise the style's own library
+folder is the default home,
+`~/.claude/edgar-style-policies/<slug>/canonical.md`, created when you
+first write the draft there); a short style
 name agreed with the user (for example "PR Voice") — the installers take
 it as a positional argument and derive the output-style filename from
 it, so it must stay identical across install, maintain, and uninstall;
@@ -235,12 +244,20 @@ without python3, `jq -e . <file>` if jq exists. If no mechanical
 validator of any kind is available, stop and have the user install
 python3 rather than deploy unvalidated content.
 
-**Stage** into an ephemeral `mktemp -d` directory with exactly three
-files (the installers abort if any is missing): `canonical.md` (the
-directive, no license header), `digest.sh` (from
-`style-digest-template.sh`, comment block dropped, `__DIGEST_TEXT__`
-replaced with the Phase 5 digest), `review-prompt.txt` (the Phase 5
-review prompt, marker first).
+**Stage into the style library.** Each authored style is kept as a
+persistent bundle in its library folder,
+`~/.claude/edgar-style-policies/<slug>/` (the `<slug>` is the style name
+lowercased with non-alphanumerics turned to hyphens, matching what the
+installers derive). Ensure that folder holds the three files the
+installers require, and abort if any is missing: `canonical.md` (the
+directive, no license header — the same file you settled as the canonical
+home in Phase 2, or a copy of it if the user keeps the master in a
+separate repo), `digest.sh` (from `style-digest-template.sh`, comment
+block dropped, `__DIGEST_TEXT__` replaced with the Phase 5 digest), and
+`review-prompt.txt` (the Phase 5 review prompt, marker first). This folder
+is at once the deployable staging directory and the permanent library
+entry that `style-switch` later re-activates by name, so use it rather
+than an ephemeral `mktemp -d`, and do not delete it after deploying.
 
 **Sandbox-test the review prompt before deploying it.** Write a
 throwaway settings file containing only a Stop prompt hook with the
@@ -276,14 +293,14 @@ concern is drift rather than tampering, and the managed tier for anyone
 who wants the policy frozen. Deploy only the tier they choose.
 
 - **User tier**: run `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh
-  <staging-dir> "<Style Name>"`. It imports the directive into
+  ~/.claude/edgar-style-policies/<slug> "<Style Name>"`. It imports the directive into
   `~/.claude/CLAUDE.md` (append, never overwrite), installs the output
   style and sets `outputStyle`, deploys the digest hook, and merges the
   review prompt hook into `~/.claude/settings.json` (backup first;
   existing settings preserved). Fully automatic.
 - **Managed tier**: run
   `${CLAUDE_PLUGIN_ROOT}/scripts/build-managed-installer.sh
-  <staging-dir> "<Style Name>"`. It assembles ONE self-contained
+  ~/.claude/edgar-style-policies/<slug> "<Style Name>"`. It assembles ONE self-contained
   installer at `~/install_claude_writing_style.sh` with the directive,
   digest, and review-prompt settings fragment embedded inline
   (human-readable, inspectable before running). Tell the user to run, in
@@ -295,8 +312,9 @@ who wants the policy frozen. Deploy only the tier they choose.
   replace, and it says so. It root-owns the tree and deletes itself on
   success.
 
-After deploying, delete the staging directory on either tier. Explain
-the four layers once, briefly: directive in CLAUDE.md (primacy, survives
+After deploying, keep the library folder — it is the permanent bundle
+`style-switch` re-activates by name — and remove only any scratch files
+you created elsewhere. Explain the four layers once, briefly: directive in CLAUDE.md (primacy, survives
 compaction), same text as output style (system prompt, highest weight),
 digest hook (recency, every prompt), judgment-review hook (a small model
 reviews each reply against the rules with intent — it distinguishes
@@ -317,7 +335,10 @@ Phase 6, so no live violation test is needed. If the user works in a
 desktop app, have them repeat the context check once in a Cowork or
 Code tab session.
 
-Record in a `VERIFIED.md` next to the canonical directive: what passed,
+Record in a `VERIFIED.md` in the style's library folder
+`~/.claude/edgar-style-policies/<slug>/` (and beside the canonical
+directive too, if the user keeps a separate repo master): what passed,
 the style name, the tier, the canonical path, the digest text, the
-review prompt, and the Phase 1 scenarios (style-maintain reuses all of
-these for redeploys, migrations, and second machines).
+review prompt, and the Phase 1 scenarios (style-maintain and style-switch
+reuse all of these for redeploys, switches, migrations, and second
+machines).

@@ -1,6 +1,6 @@
-# REUSE annotations for the six files that cannot (or should not) carry an
+# REUSE annotations for the seven files that cannot (or should not) carry an
 # inline header: the two JSON manifests (must be pure JSON per the plugin
-# spec), the three SKILL.md files (must open with YAML frontmatter on line 1
+# spec), the four SKILL.md files (must open with YAML frontmatter on line 1
 # for the skill loader), and .gitignore. Every other file has a per-file SPDX
 # header. The toolkit is uniformly licensed `MIT OR Apache-2.0`.
 #
@@ -22,6 +22,7 @@ path = [
     ".claude-plugin/marketplace.json",
     "plugins/edgar-style-policy/.claude-plugin/plugin.json",
     "plugins/edgar-style-policy/skills/style-author/SKILL.md",
+    "plugins/edgar-style-policy/skills/style-switch/SKILL.md",
     "plugins/edgar-style-policy/skills/style-maintain/SKILL.md",
     "plugins/edgar-style-policy/skills/style-uninstall/SKILL.md",
 ]
