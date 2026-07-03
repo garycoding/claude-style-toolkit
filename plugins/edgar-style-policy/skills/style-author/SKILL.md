@@ -190,12 +190,34 @@ generate carries no license text. Only the toolkit's own repository
 files keep their headers; what lands in the user's environment is
 header-free.
 
-**Preflight.** The installers use `python3` for the settings merge;
+**Preflight.** The installers prefer `python3` for the settings merge;
 confirm it executes — run `python3 -c 'import json'`, not a mere PATH
 check, because a stock Mac without Command Line Tools has a stub that
-resolves but fails. If it fails, have the user run `xcode-select
---install`, then continue. (There is no runtime python dependency; the
-review layer is a prompt hook, not a script.)
+resolves but fails. (There is no runtime python dependency; the review
+layer is a prompt hook, not a script.) If python3 is unavailable, do
+NOT stop — YOU perform the merge instead:
+
+- *User tier*: read `~/.claude/settings.json`, merge the policy entries
+  yourself (set `outputStyle`; add the digest command hook if absent;
+  replace any marker-tagged Stop prompt hook with the new one), validate
+  the result mechanically before writing — on macOS pipe it through
+  `osascript -l JavaScript -e 'ObjC.import("Foundation"); const
+  d=$.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile;
+  JSON.parse(ObjC.unwrap($.NSString.alloc.initWithDataEncoding(d,
+  $.NSUTF8StringEncoding))); "ok"'` — back up the original, write the
+  merged file, and place the remaining files by hand (canonical copy,
+  import line, output style, digest hook), mirroring what
+  `install-user.sh` does.
+- *Managed tier*: the managed settings file is root-owned but
+  world-readable, so read it, merge the fragment yourself (keep the
+  `__CS_HOOKS_DIR__` placeholder in our entries — the installer
+  substitutes it per-OS), validate as above, and pass the merged file as
+  the fourth argument to `build-managed-installer.sh`. The emitted
+  installer then writes your pre-merged result when the target machine
+  lacks python3, instead of the lossy replace.
+
+Model-merged JSON must always pass the mechanical validation before it
+is written or embedded — never deploy a merge you have not validated.
 
 **Stage** into an ephemeral `mktemp -d` directory with exactly three
 files (the installers abort if any is missing): `canonical.md` (the

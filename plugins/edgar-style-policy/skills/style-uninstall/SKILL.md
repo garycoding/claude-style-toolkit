@@ -40,9 +40,15 @@ installation intact rather than dangling), back up the settings file
 before touching it, and strip only the policy's own entries: the digest
 hook by its command path, the review hook by its
 `[writing-style-policy]` prompt marker, and `outputStyle` only if it
-names this style. Anything else in the settings is preserved. Both
-require `python3` for the surgery and abort before changing anything if
-it is unavailable (on macOS: `xcode-select --install`).
+names this style. Anything else in the settings is preserved. Both prefer
+`python3` for the surgery. If it is unavailable, YOU perform the strip
+instead: read the tier's settings file (the managed one is
+world-readable), remove exactly our entries yourself, validate the
+result mechanically (on macOS, pipe it through the osascript JSON.parse
+one-liner in style-author Phase 6), then — user tier — back up and write
+it directly, or — managed tier — pass the pre-cleaned file as the third
+argument to `build-managed-uninstaller.sh`, whose emitted script applies
+it under sudo. Never apply a strip you have not validated.
 
 - **User tier (no sudo)**: run
   `${CLAUDE_PLUGIN_ROOT}/scripts/uninstall-user.sh "<Style Name>"`. It

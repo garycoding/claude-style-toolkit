@@ -185,8 +185,11 @@ After any canonical edit, in order:
    header), `digest.sh` (from the template, leading comment block
    dropped, `__DIGEST_TEXT__` filled), `review-prompt.txt` (marker
    first). Confirm `python3 -c 'import json'` executes first — the
-   settings merge requires it (on macOS the remedy is
-   `xcode-select --install`).
+   settings merge prefers it. If it is unavailable, perform the merge
+   yourself per style-author Phase 6's fallback (model-merge, mechanical
+   validation via osascript on macOS, pre-merged file passed to the
+   managed builder's fourth argument or written directly on the user
+   tier).
 3. **Redeploy to the installed tier** (from Phase 1):
    - *User tier*: run `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh
      <staging-dir> "<Style Name>"` directly.

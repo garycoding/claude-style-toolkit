@@ -107,9 +107,12 @@ The author skill asks which tier you want:
   fragment embedded, so you can read the sudo script before running it)
   and prints the single command for you to run yourself, since the
   harness cannot enter passwords. If python3 works on the machine, the
-  installer merges into any existing managed-settings.json; otherwise it
-  backs the file up and replaces it, and says so. It deletes itself on
-  success.
+  installer merges into any existing managed-settings.json; without
+  python3, the guiding model performs the merge at build time (the
+  managed file is world-readable), validates it mechanically, and the
+  installer writes the pre-merged result — the lossy backup-and-replace
+  path remains only as the last resort, and says so when taken. It
+  deletes itself on success.
 
 Either tier governs local CLI sessions and the desktop app's Code and
 Cowork tabs. Plain desktop chat, web, and mobile are not reached by

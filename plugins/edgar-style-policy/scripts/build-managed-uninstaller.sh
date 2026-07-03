@@ -9,16 +9,28 @@
 # our keys: the digest hook by filename, the review hook by its
 # "[writing-style-policy]" marker, and outputStyle if it names our style),
 # then removes our files, then removes the managed directory only if empty,
-# and deletes itself. python3 is required for the surgery; without it the
-# uninstaller aborts before touching anything.
+# and deletes itself. The surgery needs python3; without it, a pre-cleaned
+# settings file supplied at build time (the guiding model reads the
+# world-readable managed-settings.json, strips our entries itself, and
+# validates the result) is written instead. With neither, the uninstaller
+# aborts before touching anything.
 #
-# Usage: build-managed-uninstaller.sh [style-name] [output-path]
+# Usage: build-managed-uninstaller.sh [style-name] [output-path] [precleaned-settings-file]
 set -euo pipefail
 
 STYLE_NAME="${1:-Writing Style}"
 OUTPUT="${2:-${HOME}/uninstall_claude_writing_style.sh}"
+PRECLEANED="${3:-}"
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
 [[ -n "$SLUG" ]] || SLUG="writing-style"
+if [[ -n "$PRECLEANED" ]]; then
+    grep -qF "__CS_PRECLEANED_EOF__" "$PRECLEANED" && { echo "Pre-cleaned file contains the sentinel; aborting." >&2; exit 1; }
+    if python3 -c 'import json' >/dev/null 2>&1; then
+        python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$PRECLEANED"
+    elif [[ "$(uname -s)" == "Darwin" ]]; then
+        osascript -l JavaScript -e 'ObjC.import("Foundation"); const d=$.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile; const s=$.NSString.alloc.initWithDataEncoding(d,$.NSUTF8StringEncoding); JSON.parse(ObjC.unwrap(s)); "ok"' < "$PRECLEANED" >/dev/null
+    fi
+fi
 
 {
     cat <<'HDR'
@@ -32,6 +44,13 @@ if [[ $EUID -ne 0 ]]; then echo "Run with sudo: sudo \"$0\"" >&2; exit 1; fi
 TARGET_USER="${SUDO_USER:?Run via sudo from your normal account, not a root shell}"
 HDR
     printf 'STYLE_NAME=%q\nSLUG=%q\n' "$STYLE_NAME" "$SLUG"
+    if [[ -n "$PRECLEANED" ]]; then
+        printf 'PRECLEANED=$(cat <<'\''__CS_PRECLEANED_EOF__'\''\n'
+        cat "$PRECLEANED"
+        printf '\n__CS_PRECLEANED_EOF__\n)\n'
+    else
+        printf 'PRECLEANED=""\n'
+    fi
     cat <<'BODY'
 case "$(uname -s)" in
     Darwin) MANAGED_DIR="/Library/Application Support/ClaudeCode"
@@ -44,11 +63,14 @@ HOOKS_DIR="${MANAGED_DIR}/hooks"
 STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
 STAMP=$(date +%Y%m%d%H%M%S)
 
-python3 -c 'import json' >/dev/null 2>&1 || {
-    echo "python3 is required for the settings cleanup (on macOS: xcode-select --install)." >&2
+HAVE_PY=0
+python3 -c 'import json' >/dev/null 2>&1 && HAVE_PY=1
+if [[ $HAVE_PY -eq 0 && -z "$PRECLEANED" ]]; then
+    echo "python3 is required for the settings cleanup (on macOS: xcode-select --install)," >&2
+    echo "or rebuild this uninstaller with a pre-cleaned settings file." >&2
     echo "Nothing has been changed." >&2
     exit 1
-}
+fi
 
 # Clear the macOS immutable flag if the user hardened files manually.
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -58,7 +80,17 @@ fi
 # Settings surgery FIRST: strip only our keys, preserving anything else.
 MS="${MANAGED_DIR}/managed-settings.json"
 OURS_ONLY=0
-if [[ -f "$MS" ]]; then
+if [[ -f "$MS" && $HAVE_PY -eq 0 ]]; then
+    # No python3: write the model-pre-cleaned settings from build time.
+    cp "$MS" "${MS}.bak.${STAMP}"
+    if [[ "$(printf '%s' "$PRECLEANED" | tr -d '[:space:]')" == "{}" || -z "$(printf '%s' "$PRECLEANED" | tr -d '[:space:]')" ]]; then
+        rm -f "$MS" "${MS}.bak.${STAMP}"
+        OURS_ONLY=1
+    else
+        printf '%s\n' "$PRECLEANED" > "$MS"
+    fi
+    echo "Applied pre-cleaned managed settings (model-cleaned at build time)."
+elif [[ -f "$MS" ]]; then
     cp "$MS" "${MS}.bak.${STAMP}"
     python3 - "$MS" "$STYLE_NAME" <<'PY'
 import json, sys
