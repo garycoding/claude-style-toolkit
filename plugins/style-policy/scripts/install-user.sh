@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 Gary Frattarola
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
 # User-tier installer — NO sudo required. Deploys a staged style policy
 # entirely under ~/.claude. Nothing is tamper-resistant at this tier;
 # use install-managed.sh for the root-owned variant.

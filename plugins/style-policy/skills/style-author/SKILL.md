@@ -116,11 +116,22 @@ directive requires reviewing the digest against it.
 
 ## Phase 6 — Deploy
 
+**Licensing of what you generate.** The directive is the user's own
+work and belongs solely to them: never write a license header, SPDX tag,
+or copyright line into `canonical.md` or into the output-style file
+deployed from it. When you copy the two script templates into the
+staging directory, drop their leading SPDX header comment lines — the
+deployed hooks are the user's private configuration (they embed the
+user's directive digest and banned-phrase list), not redistributed
+toolkit files. The toolkit's own repository files keep their headers;
+only what lands in the user's environment is header-free.
+
 The plugin's shared scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/`.
-Assemble a staging directory: `canonical.md` (the directive),
-`digest.sh` (from `style-digest-template.sh`, digest text inserted),
-`lint.py` (from `style-lint-template.py`, the banned-phrase list from
-Phase 1 inserted into BANNED_PHRASES). Then:
+Assemble a staging directory: `canonical.md` (the directive, no license
+header), `digest.sh` (from `style-digest-template.sh`, digest text
+inserted, SPDX header dropped), `lint.py` (from `style-lint-template.py`,
+the banned-phrase list from Phase 1 inserted into BANNED_PHRASES, SPDX
+header dropped). Then:
 
 - **Default — user tier, no sudo**: run
   `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh <staging-dir> "<Style Name>"`.

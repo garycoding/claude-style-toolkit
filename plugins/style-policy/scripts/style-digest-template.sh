@@ -1,4 +1,12 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 Gary Frattarola
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# TEMPLATE (toolkit file, licensed as above). When the style-author skill
+# stages the deployed digest.sh, it drops these SPDX header lines: the deployed
+# hook is the user's private configuration and embeds the user's own directive
+# digest, not a redistributed toolkit file.
+#
 # UserPromptSubmit hook: injects a compact digest of the style directive
 # with every prompt, giving the rules a recency position each turn.
 #

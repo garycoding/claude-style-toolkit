@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Gary Frattarola
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # Fresh-eyes review lenses
 
 Spawn each as an independent subagent with NO conversation context.

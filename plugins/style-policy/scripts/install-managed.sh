@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2026 Gary Frattarola
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
 # Managed-tier installer — requires sudo. Deploys a staged style policy
 # root-owned so no user-space tool can modify it. The harness cannot
 # enter passwords: the guiding skill stages everything, then the USER

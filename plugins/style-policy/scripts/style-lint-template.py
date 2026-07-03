@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Gary Frattarola
+# SPDX-License-Identifier: MIT OR Apache-2.0
+#
+# TEMPLATE (toolkit file, licensed as above). When the style-author skill stages
+# the deployed lint.py, it drops these SPDX header lines: the deployed hook is
+# the user's private configuration, carrying the user's own banned-phrase list.
 """Stop hook: deterministic lint of the last assistant reply against the
 mechanically checkable subset of a style directive.
 

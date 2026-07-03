@@ -1,3 +1,13 @@
+<!--
+SPDX-FileCopyrightText: 2026 Gary Frattarola
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+
+This template (the skeleton and its guidance comments) is part of the toolkit
+and is licensed as above. The directive a user generates FROM it is the user's
+own work and must carry no license header — see the style-author skill, Deploy.
+-->
+
 # <Name> Communication/Writing Style
 
 <!-- Skeleton for a style directive. Every rule follows the template:

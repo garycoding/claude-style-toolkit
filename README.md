@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Gary Frattarola
+
+SPDX-License-Identifier: MIT OR Apache-2.0
+-->
+
 # claude-style-toolkit
 
 A Claude Code plugin marketplace for writing-style policy. The first
@@ -57,11 +63,22 @@ Licensed under either of
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or
   <http://opensource.org/licenses/MIT>)
 
-at your option. In SPDX terms: `MIT OR Apache-2.0`.
+at your option. In SPDX terms: `MIT OR Apache-2.0`. See
+[LICENSING.md](LICENSING.md) for the full statement and
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) (there are no
+third-party dependencies).
 
 Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in this work by you shall be dual-licensed as
 above, without any additional terms or conditions.
+
+The license covers the toolkit only. A writing-style directive you
+produce with the `style-author` skill is your own work and carries no
+license — the skill never tags it, and the hooks it deploys into your
+environment are header-free private configuration.
+
+This repository is [REUSE](https://reuse.software/)-compliant; verify
+with `uvx --from "reuse[charset-normalizer]" reuse lint`.
 
 ## Layout
 
