@@ -17,7 +17,13 @@ plugin, `style-policy`, bundles two skills:
   and deployment.
 - **style-maintain** — audits an installed policy (drift between
   canonical and deployed copies, digest staleness, ownership, live-layer
-  checks), guides directive updates, and redeploys.
+  checks), troubleshoots why a style is not being followed, checks for
+  Claude Code platform drift, reworks the directive from new example
+  documents and observed unwanted behaviors, redeploys, and migrates
+  between tiers.
+- **style-uninstall** — removes a deployed policy (surgically, leaving
+  any other settings and the canonical directive untouched); writes a
+  self-contained sudo uninstaller for the managed tier.
 
 The method and the deployment architecture come from a worked reference
 implementation: [claude-style-policy](https://github.com/garycoding/claude-style-policy),
@@ -95,9 +101,11 @@ plugins/style-policy/
 │   ├── style-author/
 │   │   ├── SKILL.md
 │   │   └── resources/           directive template, review lenses
-│   └── style-maintain/SKILL.md
-└── scripts/                     install-user.sh (no sudo),
-                                 build-managed-installer.sh (emits the
-                                 self-contained sudo installer),
-                                 digest and lint templates
+│   ├── style-maintain/SKILL.md
+│   └── style-uninstall/SKILL.md
+└── scripts/                     install-user.sh, uninstall-user.sh (no sudo),
+                                 build-managed-installer.sh,
+                                 build-managed-uninstaller.sh (emit the
+                                 self-contained sudo install/uninstall
+                                 scripts), digest and lint templates
 ```

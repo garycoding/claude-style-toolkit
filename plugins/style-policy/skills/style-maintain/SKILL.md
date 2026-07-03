@@ -163,29 +163,20 @@ After any canonical edit, in order:
 5. **Delete the staging directory**, have the user start a fresh session,
    and repeat Phase 3. Record what changed and what was verified.
 
-## Phase 8 — Uninstall or migrate tiers
+## Phase 8 — Migrate between tiers
 
-**Uninstall.** Removing deployed copies never touches the canonical repo.
-
-- *Managed tier*: `sudo rm -rf` the managed directory (macOS
-  `/Library/Application Support/ClaudeCode`, Linux `/etc/claude-code`).
-  If `chflags schg` hardening was applied on macOS, clear it first with
-  `sudo chflags noschg <file>`.
-- *User tier*: remove `~/.claude/writing-style.md`, the
-  `@~/.claude/writing-style.md` import line from `~/.claude/CLAUDE.md`,
-  the output-style file, and the two hook scripts; then remove the
-  `outputStyle` key and the two hook entries from `~/.claude/settings.json`
-  (restore from the `.bak` written at install, or edit them out). Back up
-  `settings.json` before editing.
-
-**Migrate between tiers.** Deploy the target tier first, verify it, then
-remove the old one — never leave the machine with no policy mid-migration.
+To remove the policy entirely, use the `style-uninstall` skill — it owns
+the removal procedure (surgical, backup-first, canonical repo untouched).
+Migration is different: the user is relocating the policy, not leaving,
+so deploy the target tier first, verify it, then remove the old one —
+never leave the machine with no policy mid-migration.
 
 - *User → managed*: run `build-managed-installer.sh` from the canonical,
-  have the user run the sudo installer, verify (Phase 3), then uninstall
-  the user-tier pieces above.
+  have the user run the sudo installer, verify (Phase 3), then remove the
+  user-tier deployment with `style-uninstall`'s `uninstall-user.sh`.
 - *Managed → user*: run `install-user.sh` from the canonical, verify,
-  then `sudo rm -rf` the managed directory.
+  then remove the managed deployment with `style-uninstall`'s generated
+  `~/uninstall_claude_writing_style.sh` (sudo).
 
 Confirm the tier recorded in Phase 1 is updated to the new one for any
 later maintenance.

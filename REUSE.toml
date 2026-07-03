@@ -24,6 +24,7 @@ path = [
     "plugins/style-policy/.claude-plugin/plugin.json",
     "plugins/style-policy/skills/style-author/SKILL.md",
     "plugins/style-policy/skills/style-maintain/SKILL.md",
+    "plugins/style-policy/skills/style-uninstall/SKILL.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Gary Frattarola"
