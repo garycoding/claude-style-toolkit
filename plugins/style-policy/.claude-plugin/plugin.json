@@ -1,0 +1,10 @@
+{
+  "name": "style-policy",
+  "description": "Author, deploy, and maintain a writing-style directive as layered Claude Code policy: guided authoring (interview or exemplar-derived), contradiction and fresh-eyes review, digest generation, and user-tier or managed-tier installation.",
+  "version": "0.1.0",
+  "author": {
+    "name": "garycoding"
+  },
+  "license": "MIT",
+  "keywords": ["writing-style", "style-guide", "policy", "CLAUDE.md", "output-style"]
+}

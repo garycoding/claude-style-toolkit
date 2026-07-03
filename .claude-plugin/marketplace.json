@@ -1,0 +1,14 @@
+{
+  "name": "claude-style-toolkit",
+  "owner": {
+    "name": "garycoding"
+  },
+  "description": "Skills for authoring, deploying, and maintaining writing-style policy for Claude.",
+  "plugins": [
+    {
+      "name": "style-policy",
+      "source": "./plugins/style-policy",
+      "description": "Author a writing-style directive (from interview or exemplar documents), deploy it as layered policy, and maintain it."
+    }
+  ]
+}

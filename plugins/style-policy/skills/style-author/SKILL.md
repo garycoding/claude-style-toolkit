@@ -1,0 +1,152 @@
+---
+name: style-author
+description: Guide the user through authoring a personal or company writing-style directive for Claude — starting from an interview or from the user's exemplar documents — then review it for contradictions, run a fresh-eyes multi-agent review, generate the per-prompt digest, and deploy the policy to Claude Code (user-tier, no sudo, or managed tier). Use when the user wants to create, bootstrap, review, or install a writing style policy or style guide for AI output.
+---
+
+# Style-directive authoring and deployment
+
+You are guiding the user through producing a writing-style directive that
+Claude will actually follow, then deploying it as layered policy. The
+process has seven phases. Work one decision per exchange: present a
+finding or a draft, get the user's verdict, apply it, move on. Never
+apply unapproved changes to their directive.
+
+## Standing principles
+
+- **Calibration.** Enough detail to achieve the effect — too little and
+  models stray, too much wastes tokens and dilutes retrieval. Every
+  proposed addition must pay for itself; trimming is as valuable as
+  adding.
+- **The template.** Every rule should be: RULE (the directive), TEST (an
+  operational criterion a model can apply), ONE EXAMPLE PAIR (one
+  positive, one negative, anchoring the boundary). A rule without a test
+  lets models stray; a test without an example leaves the boundary
+  abstract; more than one or two examples per rule dilutes retrieval.
+  Self-testing rules ("do not use emojis") need no example.
+- **Single source of truth.** One canonical Markdown file. Everything
+  else — deployed copies, the digest, any pasted variants — is generated
+  from it or reviewed against it.
+- **The user owns the content.** You own the structure and the process.
+  When their preference conflicts with your advice, say so once, then
+  follow their verdict.
+
+## Phase 0 — Mode
+
+Ask which starting point fits:
+
+- **Mode A, interview**: they describe the voice they want; you draft
+  from their answers.
+- **Mode B, exemplars**: they point you at 3–10 documents whose voice
+  they consider right (their best press releases, letters, reports).
+  Read them and mine the implicit style: register, diction level,
+  sentence complexity, formatting habits, how claims are hedged or
+  asserted, what never appears. Draft rules from what you observe, and
+  take example pairs from their actual sentences wherever possible — a
+  positive example in the author's own words anchors better than an
+  invented one. Then run the Phase 1 interview only for what exemplars
+  cannot show (banned phrases, scope, precedence, failure modes they've
+  seen in AI output).
+
+Both modes converge on the same Phases 2–7.
+
+## Phase 1 — Intake interview
+
+Collect, in the user's own words:
+
+- Voice: five or six adjectives, and — more useful — what AI output has
+  done wrong for them before (specific irritations become rules).
+- Audiences and deliverable types (each may need a scope clause).
+- Banned words and phrases — get the literal list; it feeds both the
+  Diction section and the deterministic lint (see Phase 6). For a PR or
+  marketing user this list is often the highest-value artifact.
+- Claims policy: what may be asserted, what needs evidence, how
+  uncertainty is expressed. (For commercial writing: what counts as an
+  inflated claim.)
+- Formatting: lists vs prose, emphasis, emojis, headings, length norms.
+- Correspondence: whether greetings/thanks/sign-offs are structure to
+  keep (they usually are).
+- Whether output in other languages should follow the same standards.
+
+## Phase 2 — Draft
+
+Draft the directive using `resources/directive-template.md` as the
+skeleton. Keep the user's wording where it is precise; upgrade it to the
+rule/test/example-pair template where it is vague. Include the standard
+closing sections from the template (Scope and precedence, Formatting,
+Compact Instructions) — they exist because their absence is a known
+failure mode, but adapt their content to the user.
+
+## Phase 3 — Contradiction pass
+
+Check the draft against the four failure classes that recur in style
+directives, and fix each with the user's verdict, one at a time:
+
+1. **Persona anchors that ban their own markers** ("write like an Ivy
+   League PhD... no academic posturing"). Replace the archetype with the
+   behaviors it was a proxy for.
+2. **Rules the document itself violates** (an idiom ban stated in an
+   idiom). The document must pass its own tests.
+3. **Prohibitions that should be labeling regimes** ("never guess" vs
+   "never present a guess as fact; label it"). Absolute bans on useful
+   behavior produce erratic compliance; labeling preserves the intent.
+4. **Missing scope and precedence** — no carve-outs for contexts where
+   external conventions win, no clause for explicit override requests,
+   no statement of which rules never yield.
+
+## Phase 4 — Fresh-eyes review
+
+Spawn three independent subagents, none with your conversation context,
+using the prompts in `resources/review-lenses.md`: a template auditor
+(rule/test/example coverage), a cold reader (ambiguity, conflicts,
+self-violations), and a compliance simulator (apply the directive to
+4–5 of the user's real scenarios, collected in Phase 1). Discard
+findings that would bloat the document; present survivors ranked, and
+apply only what the user approves.
+
+## Phase 5 — Digest
+
+Write a one-paragraph condensation (~60–80 tokens) for per-prompt
+re-injection. Rules: declarative statements only — text framed as
+system-voice commands can trip prompt-injection defenses; name the
+highest-frequency rules (voice adjectives, formatting bans, claims
+discipline), not everything; end by noting the full directive is in the
+managed/user CLAUDE.md. Tell the user plainly: this digest is the one
+hand-maintained condensation in the system — every future edit to the
+directive requires reviewing the digest against it.
+
+## Phase 6 — Deploy
+
+The plugin's shared scripts live at `${CLAUDE_PLUGIN_ROOT}/scripts/`.
+Assemble a staging directory: `canonical.md` (the directive),
+`digest.sh` (from `style-digest-template.sh`, digest text inserted),
+`lint.py` (from `style-lint-template.py`, the banned-phrase list from
+Phase 1 inserted into BANNED_PHRASES). Then:
+
+- **Default — user tier, no sudo**: run
+  `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh <staging-dir> "<Style Name>"`.
+  It imports the directive into `~/.claude/CLAUDE.md` (append, never
+  overwrite), installs the output style and sets `outputStyle`, and
+  merges both hooks into `~/.claude/settings.json` (with backup). Fully
+  automatic. Honest limitation to state: nothing is tamper-resistant —
+  any tool writing to `~/.claude` can alter it.
+- **Optional — managed tier**: copy
+  `${CLAUDE_PLUGIN_ROOT}/scripts/install-managed.sh` next to the staging
+  directory and print the single `sudo` command for the user to run
+  themselves in a terminal (the harness cannot enter passwords).
+  Root-owned, unoverridable, survives everything short of deliberate
+  removal.
+
+Explain the four layers once, briefly: directive in CLAUDE.md (primacy,
+survives compaction), same text as output style (system prompt, highest
+weight), digest hook (recency, every prompt), lint hook (deterministic,
+no attention decay).
+
+## Phase 7 — Verify
+
+In a fresh session after install: ask Claude whether the directive and
+output style are active (it can confirm from its own context); confirm
+the digest line arrives with a prompt; test the lint by requesting
+output that violates a banned rule and confirming the reply gets
+blocked into revision. If the user works in a desktop app, have them
+repeat the context check once in a Cowork or Code tab session. Record
+what passed in the staging directory's `VERIFIED.md`.
