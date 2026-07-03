@@ -133,8 +133,19 @@ inserted, SPDX header dropped), `lint.py` (from `style-lint-template.py`,
 the banned-phrase list from Phase 1 inserted into BANNED_PHRASES, SPDX
 header dropped). Then:
 
+**Ask the user which tier they want before deploying — do not choose for
+them.** Present the trade-off in one exchange: the user tier is fully
+automatic and needs no password, but nothing in `~/.claude` is
+tamper-resistant, so any tool that writes there (including Claude's own
+memory feature) could alter the policy; the managed tier is root-owned
+and cannot be overridden or edited without elevation, but it requires the
+user to run one `sudo` command in a terminal, since the harness cannot
+enter passwords. Recommend the user tier for a personal machine where the
+concern is drift rather than tampering, and the managed tier for anyone
+who wants the policy frozen. Deploy only the tier they choose.
+
 Stage into an ephemeral directory (`mktemp -d`), not the home directory
-or the repo. Then, by tier:
+or the repo. Then, by the chosen tier:
 
 - **Default — user tier, no sudo**: run
   `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh <staging-dir> "<Style Name>"`.
