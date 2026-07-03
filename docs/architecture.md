@@ -221,6 +221,13 @@ folder (automatic at the user tier, the emitted sudo installer at the
 managed tier); restart and verify. It deploys nothing new — it reuses the
 same installers over a stored bundle.
 
+**Self-update** (`self-update`): refresh the marketplace clone, compare the
+installed version against the marketplace's, and, if newer, run `claude
+plugin update` in place; the user applies it with a single `/reload-plugins`
+(or a restart) — the one step a skill cannot take for itself, since an
+agent cannot reload its own session. It touches the plugin software, not
+any policy the toolkit deploys.
+
 ## Invariants
 
 - Deployed copies are never hand-edited; the fix for drift is redeploy.

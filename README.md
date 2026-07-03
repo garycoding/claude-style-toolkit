@@ -28,6 +28,11 @@ A Claude Code plugin marketplace for writing-style policy. The plugin,
 - **style-uninstall** — removes a deployed policy (surgically, leaving
   any other settings and the canonical directive untouched); writes a
   self-contained sudo uninstaller for the managed tier.
+- **self-update** — updates the plugin itself to the newest version its
+  marketplace offers, from inside Claude Code: it refreshes the
+  marketplace, updates the plugin in place, and leaves you a single
+  `/reload-plugins` to apply it (since `/plugin install` will not upgrade
+  an already-installed plugin).
 
 The method and the deployment architecture come from a worked reference
 implementation: [claude-style-policy](https://github.com/garycoding/claude-style-policy),
@@ -100,6 +105,7 @@ Then invoke the skills as:
 /edgar-style-policy:style-switch
 /edgar-style-policy:style-maintain
 /edgar-style-policy:style-uninstall
+/edgar-style-policy:self-update
 ```
 
 ## Deployment tiers
@@ -214,7 +220,8 @@ plugins/edgar-style-policy/
 │   │                            review-prompt template
 │   ├── style-switch/SKILL.md
 │   ├── style-maintain/SKILL.md
-│   └── style-uninstall/SKILL.md
+│   ├── style-uninstall/SKILL.md
+│   └── self-update/SKILL.md
 └── scripts/                     json-tool.sh (shared JSON engine ladder),
                                  install-user.sh, uninstall-user.sh (no sudo),
                                  build-managed-installer.sh,
