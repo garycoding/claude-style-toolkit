@@ -106,13 +106,13 @@ The author skill asks which tier you want:
   `~/install_claude_writing_style.sh` (directive, digest, and settings
   fragment embedded, so you can read the sudo script before running it)
   and prints the single command for you to run yourself, since the
-  harness cannot enter passwords. If python3 works on the machine, the
-  installer merges into any existing managed-settings.json; without
-  python3, the guiding model performs the merge at build time (the
-  managed file is world-readable), validates it mechanically, and the
-  installer writes the pre-merged result — the lossy backup-and-replace
-  path remains only as the last resort, and says so when taken. It
-  deletes itself on success.
+  harness cannot enter passwords. The installer merges into any existing
+  managed-settings.json using whichever JSON engine the machine has —
+  python3, osascript (macOS), or node, identically on both OSes; with no
+  engine at all, it writes the merge the guiding model performed and
+  validated at build time, and the lossy backup-and-replace path remains
+  only as the last resort, announced when taken. It deletes itself on
+  success.
 
 Either tier governs local CLI sessions and the desktop app's Code and
 Cowork tabs. Plain desktop chat, web, and mobile are not reached by
@@ -122,9 +122,9 @@ account-level "Instructions for Claude" profile field, by hand.
 **Second machine / reinstall:** install the plugin, copy your canonical
 directive (and `VERIFIED.md`, which records the style name, digest text,
 and scenarios), invoke `style-author`, and say the directive is finished
-— it skips straight to digest/deploy. python3 is required at install
-time only (macOS: `xcode-select --install` if missing); nothing at
-runtime depends on it.
+— it skips straight to digest/deploy. Install-time JSON work uses
+whichever engine the machine has (python3, osascript, or node); nothing
+at runtime depends on any of them.
 
 ## Update workflow
 

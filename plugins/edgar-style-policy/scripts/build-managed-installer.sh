@@ -4,32 +4,30 @@
 #
 # Assembles a single, self-contained managed-tier installer and writes it to
 # the user's home directory as install_claude_writing_style.sh. The directive,
-# digest hook, and settings fragment (outputStyle + digest command hook + the
-# judgment-review prompt hook) are embedded inline — human-readable, so the
-# sudo script can be inspected before running. The emitted installer writes
-# root-owned policy files to the OS managed directory and deletes itself.
+# digest hook, settings fragment (outputStyle + digest command hook + the
+# judgment-review prompt hook), and the JSON engine library are embedded
+# inline — human-readable, so the sudo script can be inspected before running.
+# The emitted installer writes root-owned policy files to the OS managed
+# directory and deletes itself.
 #
 # Settings handling in the emitted installer, in order of preference:
-#   1. python3 executes on the target machine -> our fragment is MERGED into
-#      any existing managed-settings.json (other managed settings preserved;
-#      our marker-tagged review hook replaced on re-install).
-#   2. no python3, but a pre-merged settings file was supplied at build time
+#   1. Any JSON engine on the target machine (python3, osascript on macOS,
+#      or node — identical on both OSes, via the inlined json-tool.sh) ->
+#      our fragment is MERGED into any existing managed-settings.json
+#      (other managed settings preserved; our marker-tagged review hook
+#      replaced on re-install).
+#   2. No engine, but a pre-merged settings file was supplied at build time
 #      (the guiding model reads the world-readable managed-settings.json,
 #      merges our fragment itself, and validates the result) -> the emitted
 #      installer writes that pre-merged content (backup first).
-#   3. neither -> backup and replace with the bare fragment, and say so.
-#
-# This builder itself needs a JSON encoder for the review prompt: python3 if
-# available, otherwise macOS's always-present osascript JavaScript engine.
+#   3. Neither -> backup and replace with the bare fragment, and say so.
 #
 # Usage: build-managed-installer.sh <staging-dir> [style-name] [output-path] [premerged-settings-file]
-#   <staging-dir>  must contain: canonical.md, digest.sh, review-prompt.txt
-#   [style-name]   default: "Writing Style"
-#   [output-path]  default: $HOME/install_claude_writing_style.sh
-#   [premerged-settings-file]  optional; model-merged managed settings (may
-#                              use the __CS_HOOKS_DIR__ placeholder in our
-#                              own entries; substituted per-OS at run time)
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=json-tool.sh
+source "${SCRIPT_DIR}/json-tool.sh"
 
 STAGING="${1:?Usage: build-managed-installer.sh <staging-dir> [style-name] [output-path] [premerged-settings-file]}"
 STYLE_NAME="${2:-Writing Style}"
@@ -45,21 +43,9 @@ SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' 
 for f in canonical.md digest.sh review-prompt.txt; do
     [[ -f "${STAGING}/${f}" ]] || { echo "Missing ${STAGING}/${f}" >&2; exit 1; }
 done
-
-HAVE_PY=0
-python3 -c 'import json' >/dev/null 2>&1 && HAVE_PY=1
-if [[ $HAVE_PY -eq 0 && "$(uname -s)" != "Darwin" ]]; then
-    echo "This builder needs python3 (or macOS osascript) to JSON-encode the review prompt." >&2
+[[ -n "$(detect_json_engine)" ]] || {
+    echo "This builder needs a JSON engine (python3, osascript, or node)." >&2
     exit 1
-fi
-
-# JSON validator that works without python on macOS.
-validate_json() {
-    if [[ $HAVE_PY -eq 1 ]]; then
-        python3 -c 'import json,sys; json.load(sys.stdin)' < "$1"
-    else
-        osascript -l JavaScript -e 'ObjC.import("Foundation"); const d=$.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile; const s=$.NSString.alloc.initWithDataEncoding(d,$.NSUTF8StringEncoding); JSON.parse(ObjC.unwrap(s)); "ok"' < "$1" >/dev/null
-    fi
 }
 
 # Collision guard: payloads must not contain the heredoc sentinels wrapping them.
@@ -70,58 +56,14 @@ for s in __CS_DIRECTIVE_EOF__ __CS_STYLE_EOF__ __CS_DIGEST_EOF__ __CS_FRAG_EOF__
     for f in "${GUARDED_FILES[@]}"; do guard "$f" "$s"; done
 done
 if [[ -n "$PREMERGED" ]]; then
-    validate_json "$PREMERGED" || { echo "Pre-merged settings file is not valid JSON: $PREMERGED" >&2; exit 1; }
+    EXISTING="$(cat "$PREMERGED")" json_transform validate >/dev/null || {
+        echo "Pre-merged settings file is not valid JSON: $PREMERGED" >&2; exit 1; }
 fi
 
-# Build the settings fragment at build time: valid JSON with the review
-# prompt safely encoded; the hooks path is a placeholder substituted per-OS
-# at run time (it contains no JSON-active characters on either OS).
-if [[ $HAVE_PY -eq 1 ]]; then
-FRAGMENT=$(python3 - "$STYLE_NAME" "${STAGING}/review-prompt.txt" <<'PY'
-import json, sys
-style, prompt_path = sys.argv[1], sys.argv[2]
-MARKER = "[writing-style-policy]"
-with open(prompt_path, encoding="utf-8") as f:
-    prompt = f.read().strip()
-if not prompt.startswith(MARKER):
-    prompt = MARKER + " " + prompt
-frag = {
-    "outputStyle": style,
-    "hooks": {
-        "UserPromptSubmit": [
-            {"hooks": [{"type": "command",
-                        "command": "\"__CS_HOOKS_DIR__/style-digest.sh\""}]}
-        ],
-        "Stop": [
-            {"hooks": [{"type": "prompt", "prompt": prompt}]}
-        ],
-    },
-}
-print(json.dumps(frag, indent=2))
-PY
-)
-else
-FRAGMENT=$(osascript -l JavaScript -e '
-function run(argv) {
-    ObjC.import("Foundation");
-    const d = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile;
-    let p = ObjC.unwrap($.NSString.alloc.initWithDataEncoding(d, $.NSUTF8StringEncoding)).trim();
-    const M = "[writing-style-policy]";
-    if (!p.startsWith(M)) p = M + " " + p;
-    const frag = {
-        outputStyle: argv[0],
-        hooks: {
-            UserPromptSubmit: [
-                {hooks: [{type: "command", command: "\"__CS_HOOKS_DIR__/style-digest.sh\""}]}
-            ],
-            Stop: [
-                {hooks: [{type: "prompt", prompt: p}]}
-            ]
-        }
-    };
-    return JSON.stringify(frag, null, 2);
-}' "$STYLE_NAME" < "${STAGING}/review-prompt.txt")
-fi
+# Build the settings fragment at build time (engine-agnostic): valid JSON with
+# the review prompt safely encoded; the hooks path is a placeholder
+# substituted per-OS at run time.
+FRAGMENT="$(STYLE="$STYLE_NAME" PROMPT="$(cat "${STAGING}/review-prompt.txt")" json_transform fragment)"
 
 {
     cat <<'HDR'
@@ -133,7 +75,11 @@ fi
 set -euo pipefail
 if [[ $EUID -ne 0 ]]; then echo "Run with sudo: sudo \"$0\"" >&2; exit 1; fi
 TARGET_USER="${SUDO_USER:?Run via sudo from your normal account, not a root shell}"
+
+# --- inlined json-tool.sh (engine dispatch: python3 / osascript / node) ---
 HDR
+    cat "${SCRIPT_DIR}/json-tool.sh"
+    printf -- '# --- end json-tool.sh ---\n'
     printf 'STYLE_NAME=%q\nSLUG=%q\n' "$STYLE_NAME" "$SLUG"
     cat <<'BODY1'
 case "$(uname -s)" in
@@ -160,7 +106,7 @@ BODY1
     printf 'cat > "${HOOKS_DIR}/style-digest.sh" <<'\''__CS_DIGEST_EOF__'\''\n'
     cat "${STAGING}/digest.sh"
     printf '\n__CS_DIGEST_EOF__\n'
-    # Settings fragment (built and JSON-validated at build time).
+    # Settings fragment (built and validated at build time).
     printf 'FRAGMENT=$(cat <<'\''__CS_FRAG_EOF__'\''\n'
     printf '%s\n' "$FRAGMENT"
     printf '__CS_FRAG_EOF__\n)\n'
@@ -178,51 +124,25 @@ FRAGMENT="${FRAGMENT//__CS_HOOKS_DIR__/${HOOKS_DIR}}"
 [[ -n "$PREMERGED" ]] && PREMERGED="${PREMERGED//__CS_HOOKS_DIR__/${HOOKS_DIR}}"
 
 MS="${MANAGED_DIR}/managed-settings.json"
-if python3 -c 'import json' >/dev/null 2>&1; then
+ENGINE="$(detect_json_engine)"
+EXISTING=""
+[[ -f "$MS" ]] && EXISTING="$(cat "$MS")"
+if [[ -n "$ENGINE" ]] && MERGED="$(FRAGMENT="$FRAGMENT" EXISTING="$EXISTING" json_transform merge)"; then
     # Merge path: preserve any other managed settings; replace our own
     # marker-tagged review hook and digest entry so re-installs update them.
-    if [[ -f "$MS" ]]; then cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"; fi
-    FRAGMENT="$FRAGMENT" python3 - "$MS" <<'PY'
-import json, os, sys
-path = sys.argv[1]
-frag = json.loads(os.environ["FRAGMENT"])
-MARKER = "[writing-style-policy]"
-data = {}
-if os.path.exists(path):
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-data["outputStyle"] = frag["outputStyle"]
-hooks = data.setdefault("hooks", {})
-digest_cmd = frag["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
-groups = hooks.setdefault("UserPromptSubmit", [])
-if not any(h.get("command") == digest_cmd
-           for g in groups for h in g.get("hooks", [])):
-    groups.append(frag["hooks"]["UserPromptSubmit"][0])
-stop = hooks.get("Stop", [])
-kept = []
-for g in stop:
-    hs = [h for h in g.get("hooks", [])
-          if not (h.get("type") == "prompt"
-                  and str(h.get("prompt", "")).startswith(MARKER))]
-    if hs:
-        kept.append({**g, "hooks": hs})
-kept.append(frag["hooks"]["Stop"][0])
-hooks["Stop"] = kept
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PY
-    echo "Merged policy into managed-settings.json (other managed settings preserved)."
+    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
+    printf '%s\n' "$MERGED" > "$MS"
+    echo "Merged policy into managed-settings.json (engine: ${ENGINE}; other managed settings preserved)."
 elif [[ -n "$PREMERGED" ]]; then
-    # No python3, but the guiding model pre-merged the settings at build time.
-    if [[ -f "$MS" ]]; then cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"; fi
+    # No engine (or unparseable existing file): use the model's build-time merge.
+    [[ -f "$MS" ]] && cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
     printf '%s\n' "$PREMERGED" > "$MS"
     echo "Wrote pre-merged managed-settings.json (model-merged at build time; backup kept)."
 else
     # Last resort: back up any existing file and write our fragment whole.
     if [[ -f "$MS" ]]; then
         cp "$MS" "${MS}.bak.$(date +%Y%m%d%H%M%S)"
-        echo "python3 not available and no pre-merged settings supplied:"
+        echo "No JSON engine available and no pre-merged settings supplied:"
         echo "backed up existing managed-settings.json and replaced it."
     fi
     printf '%s\n' "$FRAGMENT" > "$MS"

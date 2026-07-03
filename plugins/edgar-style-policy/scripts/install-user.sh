@@ -10,6 +10,9 @@
 #   <staging-dir> must contain: canonical.md, digest.sh, review-prompt.txt
 #   [style-name]  display name for the output style (default: Writing Style)
 #
+# JSON work runs on whichever engine the machine has — python3, osascript
+# (macOS), or node — via json-tool.sh. Identical behavior on macOS and Linux.
+#
 # Actions (all idempotent):
 #   ~/.claude/writing-style.md            <- canonical.md
 #   ~/.claude/CLAUDE.md                   <- append @import line if absent
@@ -19,6 +22,10 @@
 #                                            + judgment-review prompt hook
 #                                            (merged; backup written first)
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=json-tool.sh
+source "${SCRIPT_DIR}/json-tool.sh"
 
 STAGING="${1:?Usage: install-user.sh <staging-dir> [style-name]}"
 STYLE_NAME="${2:-Writing Style}"
@@ -36,27 +43,29 @@ for f in canonical.md digest.sh review-prompt.txt; do
     [[ -f "${STAGING}/${f}" ]] || { echo "Missing ${STAGING}/${f}" >&2; exit 1; }
 done
 
-# Preflight BEFORE any mutation: python3 must execute (a stock Mac without
-# Command Line Tools has a stub that resolves but fails), and any existing
+# Preflight BEFORE any mutation: an engine must exist, and any existing
 # settings.json must parse, or we abort cleanly rather than half-install.
-if ! python3 -c 'import json' >/dev/null 2>&1; then
-    echo "python3 is required for the settings merge. On macOS run:" >&2
-    echo "    xcode-select --install" >&2
-    echo "then rerun this installer. Nothing has been changed." >&2
+ENGINE="$(detect_json_engine)"
+if [[ -z "$ENGINE" ]]; then
+    echo "No JSON engine found (python3, osascript, or node)." >&2
+    echo "On macOS run: xcode-select --install   (or use the skill's model-merge fallback)" >&2
+    echo "On Linux run: sudo apt install python3. Nothing has been changed." >&2
     exit 1
 fi
-if [[ -f "$SETTINGS" ]] && ! python3 - "$SETTINGS" >/dev/null 2>&1 <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as f:
-    d = json.load(f)
-assert isinstance(d, dict)
-assert isinstance(d.get("hooks", {}), dict)
-PY
-then
-    echo "~/.claude/settings.json is not valid JSON (or has a malformed hooks key)." >&2
-    echo "Fix or remove it, then rerun. Nothing has been changed." >&2
-    exit 1
+if [[ -f "$SETTINGS" ]]; then
+    if ! EXISTING="$(cat "$SETTINGS")" || ! EXISTING="$EXISTING" json_transform validate >/dev/null; then
+        echo "~/.claude/settings.json is not valid JSON. Fix or remove it, then rerun." >&2
+        echo "Nothing has been changed." >&2
+        exit 1
+    fi
+else
+    EXISTING=""
 fi
+
+# Build the merged settings up front (pure transforms; nothing written yet).
+FRAGMENT="$(STYLE="$STYLE_NAME" PROMPT="$(cat "${STAGING}/review-prompt.txt")" json_transform fragment)"
+FRAGMENT="${FRAGMENT//__CS_HOOKS_DIR__/${CLAUDE_DIR}/hooks}"
+MERGED="$(FRAGMENT="$FRAGMENT" EXISTING="$EXISTING" json_transform merge)"
 
 mkdir -p "${CLAUDE_DIR}/hooks" "${CLAUDE_DIR}/output-styles"
 
@@ -78,50 +87,13 @@ fi
 # Digest hook (the only deployed hook file; the review hook is settings config).
 install -m 0755 "${STAGING}/digest.sh" "${CLAUDE_DIR}/hooks/style-digest.sh"
 
-# Settings merge (with backup): outputStyle, digest command hook, and the
-# judgment-review prompt hook. Existing review hooks bearing our marker are
-# replaced so prompt updates apply on re-install.
+# Settings: write the pre-computed merge (backup first).
 if [[ -f "$SETTINGS" ]]; then
     cp "$SETTINGS" "${SETTINGS}.bak.$(date +%Y%m%d%H%M%S)"
 fi
-python3 - "$SETTINGS" "$STYLE_NAME" "${CLAUDE_DIR}/hooks" "${STAGING}/review-prompt.txt" <<'PY'
-import json, os, sys
-path, style, hooks_dir, prompt_path = sys.argv[1:5]
-MARKER = "[writing-style-policy]"
-with open(prompt_path, encoding="utf-8") as f:
-    prompt = f.read().strip()
-if not prompt.startswith(MARKER):
-    prompt = MARKER + " " + prompt
-data = {}
-if os.path.exists(path):
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-data["outputStyle"] = style
-hooks = data.setdefault("hooks", {})
+printf '%s\n' "$MERGED" > "$SETTINGS"
 
-digest_cmd = os.path.join(hooks_dir, "style-digest.sh")
-groups = hooks.setdefault("UserPromptSubmit", [])
-if not any(h.get("command") == digest_cmd
-           for g in groups for h in g.get("hooks", [])):
-    groups.append({"hooks": [{"type": "command", "command": digest_cmd}]})
-
-stop = hooks.setdefault("Stop", [])
-kept = []
-for g in stop:
-    hs = [h for h in g.get("hooks", [])
-          if not (h.get("type") == "prompt"
-                  and str(h.get("prompt", "")).startswith(MARKER))]
-    if hs:
-        kept.append({**g, "hooks": hs})
-kept.append({"hooks": [{"type": "prompt", "prompt": prompt}]})
-hooks["Stop"] = kept
-
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PY
-
-echo "Installed (user tier) for style: ${STYLE_NAME}"
+echo "Installed (user tier) for style: ${STYLE_NAME} (JSON engine: ${ENGINE})"
 echo "Fully quit and restart Claude Code (a /clear is not enough), then verify:"
 echo "  1. Ask Claude whether the writing-style directive and the"
 echo "     '${STYLE_NAME}' output style are active."

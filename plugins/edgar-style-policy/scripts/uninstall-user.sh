@@ -6,12 +6,17 @@
 # ~/.claude, leaving the canonical directive in the user's repo untouched.
 # Settings surgery runs FIRST, so a failure leaves the install intact
 # rather than dangling; files are removed only after it succeeds. Only the
-# policy's own entries are touched: the digest hook is matched by its exact
-# command path and the review hook by the "[writing-style-policy]" marker —
-# any other hooks or settings the user has are preserved.
+# policy's own entries are touched: the digest hook is matched by its
+# filename and the review hook by the "[writing-style-policy]" marker —
+# any other hooks or settings the user has are preserved. JSON work runs
+# on whichever engine the machine has (python3, osascript, or node).
 #
 # Usage: uninstall-user.sh [style-name]
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=json-tool.sh
+source "${SCRIPT_DIR}/json-tool.sh"
 
 STYLE_NAME="${1:-Writing Style}"
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
@@ -23,43 +28,16 @@ STAMP=$(date +%Y%m%d%H%M%S)
 # Settings surgery first (with backup): remove our keys, preserve the rest.
 S="${CLAUDE_DIR}/settings.json"
 if [[ -f "$S" ]]; then
-    if ! python3 -c 'import json' >/dev/null 2>&1; then
-        echo "python3 is required for the settings cleanup (on macOS: xcode-select --install)." >&2
-        echo "Nothing has been changed." >&2
+    ENGINE="$(detect_json_engine)"
+    if [[ -z "$ENGINE" ]]; then
+        echo "No JSON engine found (python3, osascript, or node) for the settings cleanup." >&2
+        echo "On macOS: xcode-select --install. Nothing has been changed." >&2
         exit 1
     fi
+    EXISTING="$(cat "$S")"
+    CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" json_transform strip)"
     cp "$S" "${S}.bak.${STAMP}"
-    python3 - "$S" "$HOOKS_DIR" "$STYLE_NAME" <<'PY'
-import json, os, sys
-path, hooks_dir, style = sys.argv[1:4]
-MARKER = "[writing-style-policy]"
-digest_cmd = os.path.join(hooks_dir, "style-digest.sh")
-with open(path, encoding="utf-8") as f:
-    d = json.load(f)
-if d.get("outputStyle") == style:
-    d.pop("outputStyle", None)
-hooks = d.get("hooks", {})
-for ev in ("UserPromptSubmit", "Stop"):
-    kept = []
-    for g in hooks.get(ev, []):
-        hs = [h for h in g.get("hooks", [])
-              if h.get("command") != digest_cmd
-              and not (h.get("type") == "prompt"
-                       and str(h.get("prompt", "")).startswith(MARKER))]
-        if hs:
-            kept.append({**g, "hooks": hs})
-    if kept:
-        hooks[ev] = kept
-    else:
-        hooks.pop(ev, None)
-if hooks:
-    d["hooks"] = hooks
-else:
-    d.pop("hooks", None)
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(d, f, indent=2)
-    f.write("\n")
-PY
+    printf '%s\n' "$CLEANED" > "$S"
 fi
 
 # Drop the import line from ~/.claude/CLAUDE.md (back it up first), then

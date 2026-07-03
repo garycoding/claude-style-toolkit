@@ -9,14 +9,20 @@
 # our keys: the digest hook by filename, the review hook by its
 # "[writing-style-policy]" marker, and outputStyle if it names our style),
 # then removes our files, then removes the managed directory only if empty,
-# and deletes itself. The surgery needs python3; without it, a pre-cleaned
-# settings file supplied at build time (the guiding model reads the
-# world-readable managed-settings.json, strips our entries itself, and
-# validates the result) is written instead. With neither, the uninstaller
-# aborts before touching anything.
+# and deletes itself.
+#
+# The surgery runs on whichever JSON engine the target machine has (python3,
+# osascript on macOS, or node — via the inlined json-tool.sh). Without any
+# engine, a pre-cleaned settings file supplied at build time (model-cleaned
+# and validated) is applied; with neither, the uninstaller aborts before
+# touching anything.
 #
 # Usage: build-managed-uninstaller.sh [style-name] [output-path] [precleaned-settings-file]
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=json-tool.sh
+source "${SCRIPT_DIR}/json-tool.sh"
 
 STYLE_NAME="${1:-Writing Style}"
 OUTPUT="${2:-${HOME}/uninstall_claude_writing_style.sh}"
@@ -25,11 +31,8 @@ SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' 
 [[ -n "$SLUG" ]] || SLUG="writing-style"
 if [[ -n "$PRECLEANED" ]]; then
     grep -qF "__CS_PRECLEANED_EOF__" "$PRECLEANED" && { echo "Pre-cleaned file contains the sentinel; aborting." >&2; exit 1; }
-    if python3 -c 'import json' >/dev/null 2>&1; then
-        python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$PRECLEANED"
-    elif [[ "$(uname -s)" == "Darwin" ]]; then
-        osascript -l JavaScript -e 'ObjC.import("Foundation"); const d=$.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile; const s=$.NSString.alloc.initWithDataEncoding(d,$.NSUTF8StringEncoding); JSON.parse(ObjC.unwrap(s)); "ok"' < "$PRECLEANED" >/dev/null
-    fi
+    EXISTING="$(cat "$PRECLEANED")" json_transform validate >/dev/null || {
+        echo "Pre-cleaned settings file is not valid JSON: $PRECLEANED" >&2; exit 1; }
 fi
 
 {
@@ -42,7 +45,11 @@ fi
 set -euo pipefail
 if [[ $EUID -ne 0 ]]; then echo "Run with sudo: sudo \"$0\"" >&2; exit 1; fi
 TARGET_USER="${SUDO_USER:?Run via sudo from your normal account, not a root shell}"
+
+# --- inlined json-tool.sh (engine dispatch: python3 / osascript / node) ---
 HDR
+    cat "${SCRIPT_DIR}/json-tool.sh"
+    printf -- '# --- end json-tool.sh ---\n'
     printf 'STYLE_NAME=%q\nSLUG=%q\n' "$STYLE_NAME" "$SLUG"
     if [[ -n "$PRECLEANED" ]]; then
         printf 'PRECLEANED=$(cat <<'\''__CS_PRECLEANED_EOF__'\''\n'
@@ -63,12 +70,11 @@ HOOKS_DIR="${MANAGED_DIR}/hooks"
 STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
 STAMP=$(date +%Y%m%d%H%M%S)
 
-HAVE_PY=0
-python3 -c 'import json' >/dev/null 2>&1 && HAVE_PY=1
-if [[ $HAVE_PY -eq 0 && -z "$PRECLEANED" ]]; then
-    echo "python3 is required for the settings cleanup (on macOS: xcode-select --install)," >&2
-    echo "or rebuild this uninstaller with a pre-cleaned settings file." >&2
-    echo "Nothing has been changed." >&2
+ENGINE="$(detect_json_engine)"
+if [[ -z "$ENGINE" && -z "$PRECLEANED" ]]; then
+    echo "No JSON engine found (python3, osascript, or node) for the settings cleanup," >&2
+    echo "and no pre-cleaned settings were supplied at build time." >&2
+    echo "On macOS: xcode-select --install, then rerun. Nothing has been changed." >&2
     exit 1
 fi
 
@@ -80,53 +86,29 @@ fi
 # Settings surgery FIRST: strip only our keys, preserving anything else.
 MS="${MANAGED_DIR}/managed-settings.json"
 OURS_ONLY=0
-if [[ -f "$MS" && $HAVE_PY -eq 0 ]]; then
-    # No python3: write the model-pre-cleaned settings from build time.
+if [[ -f "$MS" ]]; then
+    CLEANED=""
+    if [[ -n "$ENGINE" ]]; then
+        EXISTING="$(cat "$MS")"
+        CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" json_transform strip)" || CLEANED=""
+    fi
+    if [[ -z "$CLEANED" && -n "$PRECLEANED" ]]; then
+        CLEANED="$PRECLEANED"
+        echo "Applying pre-cleaned managed settings (model-cleaned at build time)."
+    fi
+    if [[ -z "$CLEANED" ]]; then
+        echo "Could not clean managed-settings.json (unparseable and no pre-cleaned fallback)." >&2
+        echo "Nothing has been changed." >&2
+        exit 1
+    fi
     cp "$MS" "${MS}.bak.${STAMP}"
-    if [[ "$(printf '%s' "$PRECLEANED" | tr -d '[:space:]')" == "{}" || -z "$(printf '%s' "$PRECLEANED" | tr -d '[:space:]')" ]]; then
+    if [[ "$(printf '%s' "$CLEANED" | tr -d '[:space:]')" == "{}" ]]; then
+        # The file was ours alone: remove it and this run's backup, so an
+        # empty directory can actually be removed below.
         rm -f "$MS" "${MS}.bak.${STAMP}"
         OURS_ONLY=1
     else
-        printf '%s\n' "$PRECLEANED" > "$MS"
-    fi
-    echo "Applied pre-cleaned managed settings (model-cleaned at build time)."
-elif [[ -f "$MS" ]]; then
-    cp "$MS" "${MS}.bak.${STAMP}"
-    python3 - "$MS" "$STYLE_NAME" <<'PY'
-import json, sys
-path, style = sys.argv[1], sys.argv[2]
-MARKER = "[writing-style-policy]"
-with open(path, encoding="utf-8") as f:
-    d = json.load(f)
-if d.get("outputStyle") == style:
-    d.pop("outputStyle", None)
-hooks = d.get("hooks", {})
-for ev in ("UserPromptSubmit", "Stop"):
-    kept = []
-    for g in hooks.get(ev, []):
-        hs = [h for h in g.get("hooks", [])
-              if "style-digest.sh" not in (h.get("command") or "")
-              and not (h.get("type") == "prompt"
-                       and str(h.get("prompt", "")).startswith(MARKER))]
-        if hs:
-            kept.append({**g, "hooks": hs})
-    if kept:
-        hooks[ev] = kept
-    else:
-        hooks.pop(ev, None)
-if hooks:
-    d["hooks"] = hooks
-else:
-    d.pop("hooks", None)
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(d, f, indent=2)
-    f.write("\n")
-PY
-    # If nothing but empty braces remain, the file was ours alone: remove it
-    # and this run's backup, so an empty directory can actually be removed.
-    if [[ "$(tr -d '[:space:]' < "$MS")" == "{}" ]]; then
-        rm -f "$MS" "${MS}.bak.${STAMP}"
-        OURS_ONLY=1
+        printf '%s\n' "$CLEANED" > "$MS"
     fi
 fi
 

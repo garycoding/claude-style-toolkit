@@ -190,12 +190,14 @@ generate carries no license text. Only the toolkit's own repository
 files keep their headers; what lands in the user's environment is
 header-free.
 
-**Preflight.** The installers prefer `python3` for the settings merge;
-confirm it executes — run `python3 -c 'import json'`, not a mere PATH
-check, because a stock Mac without Command Line Tools has a stub that
-resolves but fails. (There is no runtime python dependency; the review
-layer is a prompt hook, not a script.) If python3 is unavailable, do
-NOT stop — YOU perform the merge instead:
+**Preflight.** The installers run their JSON work on whichever engine
+the machine has, identically on macOS and Linux: `python3` if it
+executes (test with `python3 -c 'import json'`, not a PATH check — a
+stock Mac without Command Line Tools has a stub that resolves but
+fails), else `osascript` (present on every Mac), else `node`. In
+practice at least one exists on every supported machine. (There is no
+runtime dependency on any of them; the review layer is a prompt hook,
+not a script.) Only if NONE exists do you perform the merge yourself:
 
 - *User tier*: read `~/.claude/settings.json`, merge the policy entries
   yourself (set `outputStyle`; add the digest command hook if absent;
