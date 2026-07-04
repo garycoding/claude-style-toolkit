@@ -176,11 +176,16 @@ the end of every turn): generate it from
 `[writing-style-policy]` marker as the first characters — the
 uninstallers identify our hook by it. Structure it as an ordered
 decision list: exemptions first (explicit user request; mention rather
-than use), violations after (only the checks the user's directive
+than use; the standing technical-token exemption from the template, so
+code, commands, paths, command-line flags, and hyphenated compounds never
+trip a check), violations after (only the checks the user's directive
 actually imposes — decorative emoji, flattery openers, the banned-phrase
 list from Phase 1), default pass last. Ordering matters: a flat clause
 pile invites the evaluator to weigh clauses against each other; an
-ordered list decides for it.
+ordered list decides for it. When the directive bans a punctuation mark or
+another mechanical element (a dash ban is the archetype), state its
+carve-outs in that check itself, since a small evaluator will otherwise
+mistake an ordinary hyphen or a command-line flag for the barred mark.
 
 ## Phase 6 — Deploy
 

@@ -1,7 +1,7 @@
 {
   "name": "edgar-style-policy",
   "description": "Author, deploy, maintain, switch, and remove edgar writing-style directives as layered Claude Code policy: guided authoring (interview or exemplar-derived), contradiction and fresh-eyes review, digest generation, user-tier or managed-tier installation, a named local library with by-name switching, troubleshooting, uninstall, and in-place plugin self-update.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": {
     "name": "garycoding"
   },
