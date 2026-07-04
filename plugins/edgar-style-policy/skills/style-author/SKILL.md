@@ -1,6 +1,6 @@
 ---
 name: style-author
-description: Guide the user through authoring a personal or company writing-style directive for Claude — starting from an interview or from the user's exemplar documents — then review it for contradictions, run a fresh-eyes multi-agent review, generate the per-prompt digest and the judgment-review prompt, and deploy the policy to Claude Code (user-tier, no sudo, or managed tier). Use when the user wants to create, bootstrap, or install a writing style policy or style guide for AI output.
+description: Guide the user through authoring a personal or company edgar writing-style directive for Claude — starting from an interview or from the user's exemplar documents — then review it for contradictions, run a fresh-eyes multi-agent review, generate the per-prompt digest and the judgment-review prompt, and deploy the policy to Claude Code (user-tier, no sudo, or managed tier). Use when the user wants to create, bootstrap, or install an edgar writing style (a writing-style policy or style guide) for AI output.
 ---
 
 # Style-directive authoring and deployment

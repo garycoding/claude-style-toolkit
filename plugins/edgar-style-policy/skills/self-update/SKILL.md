@@ -1,6 +1,6 @@
 ---
 name: self-update
-description: Update the edgar-style-policy plugin itself to the newest version its marketplace offers, from inside Claude Code. Use when the user wants to update, upgrade, or get the latest version of this plugin, this style toolkit, or its skills. This is about the plugin software, not a writing style; to change or edit a style use style-maintain. It refreshes the marketplace, updates the plugin in place, and leaves the user the single step needed to apply it.
+description: Update the edgar-style-policy plugin itself to the newest version its marketplace offers, from inside Claude Code. Use when the user wants to update, upgrade, or get the latest version of this plugin, the edgar style toolkit, or its skills. This is about the plugin software, not a writing style; to change or edit a style use style-maintain. It refreshes the marketplace, updates the plugin in place, and leaves the user the single step needed to apply it.
 ---
 
 # Plugin self-update

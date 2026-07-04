@@ -7,9 +7,9 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 # Writing-style policy on Claude for Mac: a Cowork user's manual
 
 This manual is for someone who uses Claude for Mac and works in the Cowork
-tab. It shows how to install the style toolkit, create and deploy a writing
-style, keep several styles and switch between them, update the plugin, and
-remove a style. It assumes no terminal and no command-line knowledge; you
+tab. It shows how to install the style toolkit, create and deploy an edgar writing
+style, revise it, keep several and switch between them, update the plugin, and
+remove one. It assumes no terminal and no command-line knowledge; you
 do everything by talking to Claude.
 
 ## Two ground rules to read first
@@ -45,9 +45,17 @@ The toolkit comes in two parts: a marketplace, which is the catalog Claude
 reads from, and the plugin itself, named `edgar-style-policy`. You add both
 by asking Claude, once.
 
-1. Open a Cowork chat and type, in plain words: "Please add the marketplace
-   `garycoding/claude-style-toolkit` and install the `edgar-style-policy`
-   plugin." Claude will run the installation for you and confirm it.
+1. Open a Cowork chat and ask Claude, plainly: "Please set up a Claude Code
+   plugin for me. Add the plugin marketplace from the GitHub repository
+   `garycoding/claude-style-toolkit`, then install the `edgar-style-policy`
+   plugin from it." Naming it as a Claude Code plugin and a GitHub repository
+   is what lets Claude recognize `garycoding/claude-style-toolkit` as an
+   address it can add (the command it runs expands that `owner/repo`
+   shorthand to the GitHub URL and clones it); Claude then runs the plugin
+   commands for you and confirms them. If Claude seems unsure what to do, give
+   it these two lines to run: `claude plugin marketplace add
+   garycoding/claude-style-toolkit` and `claude plugin install
+   edgar-style-policy@claude-style-toolkit`.
 2. Fully quit Claude for Mac (Cmd+Q) and open it again.
 3. Confirm it worked: in a new Cowork chat, type `/edgar-style-policy:` and
    you should see the toolkit's commands offered (`style-author`,
@@ -56,16 +64,18 @@ by asking Claude, once.
    which version?"
 
 Do not type `/plugin ...` into the app to install; it will not work there.
-The plain-language request in step 1 is the whole of it.
+The plain-language request in step 1 is normally all it takes; the two
+fallback lines are only for the case where Claude does not recognize the
+request.
 
 ## 2. Create and deploy your first writing style
 
-A style is a set of rules for how Claude writes: its voice, the words it
+An edgar writing style is a set of rules for how Claude writes: its voice, the words it
 must avoid, how it formats, how it handles claims. The `style-author` skill
 walks you through building one and then deploys it.
 
 1. In a Cowork chat, type `/edgar-style-policy:style-author` (or ask Claude
-   to help you create a writing style).
+   to help you create an edgar writing style).
 2. Answer Claude's questions. It will ask for the voice you want in a few
    adjectives, what past writing has done wrong, words and phrases to ban,
    formatting preferences, and a name for the style. If you already have
@@ -77,10 +87,29 @@ walks you through building one and then deploys it.
    then installs the style with no password required and saves a copy in
    your local library so it can be reused later.
 5. Fully quit Claude for Mac (Cmd+Q) and open it again.
-6. Confirm it is active: ask Claude "Which writing style is active?" From
-   now on Claude follows your style when it writes in Cowork.
+6. Confirm it is active: ask Claude "Which edgar writing style is active?" From
+   now on Claude follows your edgar writing style when it writes in Cowork.
 
-## 3. Keep several styles and switch between them
+## 3. Revise an edgar writing style
+
+To change a style you have already made, its voice, a word to ban, a
+formatting habit, use the `style-maintain` skill. It edits the style in
+place and redeploys it; you do not start over.
+
+1. In a Cowork chat, type `/edgar-style-policy:style-maintain` (or ask
+   Claude to update your edgar writing style).
+2. Tell Claude what to change. The most useful inputs are concrete: a
+   phrase it should stop using, an example document whose voice is right
+   or wrong, or a specific thing it wrote that you did not want.
+3. Claude revises the style with you, one change at a time, until you are
+   satisfied, then redeploys it with no password.
+4. Fully quit Claude for Mac (Cmd+Q) and open it again; the revision takes
+   effect on the next session.
+
+This changes an existing style. To move between styles you have stored,
+see the next section; to update the plugin software itself, see section 5.
+
+## 4. Keep several styles and switch between them
 
 Every style you author is kept in a local library, so you can build more
 than one and move between them by name. Nothing you switch away from is
@@ -103,7 +132,7 @@ Switching back is the same procedure; your styles stay in the library
 until you deliberately remove them, so you can move between them as often
 as you like.
 
-## 4. Update the plugin
+## 5. Update the plugin
 
 When a new version of the toolkit is published, the `self-update` skill
 brings you to it. This exists because the ordinary install command does not
@@ -120,7 +149,7 @@ thing for you.
 If Claude reports you are already on the latest version, there is nothing
 to do.
 
-## 5. Remove a style, or remove the plugin
+## 6. Remove a style, or remove the plugin
 
 "Uninstall" can mean two different things; here is each.
 

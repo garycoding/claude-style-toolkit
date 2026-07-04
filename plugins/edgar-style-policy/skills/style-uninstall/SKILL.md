@@ -1,6 +1,6 @@
 ---
 name: style-uninstall
-description: Remove an installed writing-style policy for Claude from this machine. Detects the installed tier, removes the deployed directive, output style, digest hook, and judgment-review hook (surgically, leaving any other settings intact), and leaves the canonical directive in the user's repo untouched. For the managed tier it writes a self-contained sudo uninstaller to the home directory. Use when the user wants to uninstall, remove, delete, disable, or tear down their writing style policy or style enforcement setup.
+description: Remove an installed edgar writing-style policy for Claude from this machine. Detects the installed tier, removes the deployed directive, output style, digest hook, and judgment-review hook (surgically, leaving any other settings intact), and leaves the canonical directive in the user's repo untouched. For the managed tier it writes a self-contained sudo uninstaller to the home directory. Use when the user wants to uninstall, remove, delete, disable, or tear down their edgar writing-style policy or style enforcement setup.
 ---
 
 # Style-policy uninstall

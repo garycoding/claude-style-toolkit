@@ -1,6 +1,6 @@
 ---
 name: style-switch
-description: List the writing-style policies stored in the local library and switch the active one by name. Use when the user wants to switch, change, activate, select, or list their writing styles, or move to a different stored style. Switching re-deploys the chosen style through the existing installers (user tier automatic, managed tier one sudo) and takes effect after a full restart. For creating a new style use style-author; for editing or troubleshooting the active one use style-maintain.
+description: List the edgar writing-style policies stored in the local library and switch the active one by name. Use when the user wants to switch, change, activate, select, or list their edgar writing styles, or move to a different stored one. Switching re-deploys the chosen style through the existing installers (user tier automatic, managed tier one sudo) and takes effect after a full restart. For creating a new style use style-author; for editing or troubleshooting the active one use style-maintain.
 ---
 
 # Style-policy switching

@@ -6,10 +6,10 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 # claude-style-toolkit
 
-A Claude Code plugin marketplace for writing-style policy. The plugin,
-`edgar-style-policy`, bundles three skills:
+A Claude Code plugin marketplace for edgar writing-style policy. The plugin,
+`edgar-style-policy`, bundles five skills:
 
-- **style-author** — guides you through creating a writing-style
+- **style-author** — guides you through creating an edgar writing-style
   directive Claude will actually follow: intake by interview or by
   mining your existing documents for the voice they embody, drafting on
   the rule/test/example-pair template, a contradiction pass, an

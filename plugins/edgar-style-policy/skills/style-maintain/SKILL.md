@@ -1,6 +1,6 @@
 ---
 name: style-maintain
-description: Review, verify, troubleshoot, and update an installed writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (CLAUDE.md, output style, digest hook, judgment-review hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, redeploys to the installed tier, and migrates between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, or move (migrate) their writing style policy or style enforcement setup. For removing a policy, use the style-uninstall skill instead.
+description: Review, verify, troubleshoot, and update an installed edgar writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (CLAUDE.md, output style, digest hook, judgment-review hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, redeploys to the installed tier, and migrates between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, or move (migrate) their edgar writing-style policy or style enforcement setup. For removing a policy, use the style-uninstall skill instead.
 ---
 
 # Style-policy maintenance
