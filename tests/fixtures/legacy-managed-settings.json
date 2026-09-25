@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf /)"
+    ]
+  },
+  "outputStyle": "House Style",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/managed/hooks/style-digest.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "[writing-style-policy] Review the reply."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "foreign-stop.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "foreign-lint.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+# name	expected	command (printf %b escapes; raw UTF-8 characters)
+commit with robot	hit	git commit -m "feat: add 🤖 bot"
+commit with plain symbols	none	git commit -m "fix: © ™ ✓ → ─ ⚠"
+commit behind -C	hit	git -C /tmp/x commit -m "✨ feat"
+heredoc with ZWJ sequence	hit	cd /tmp && git commit -F - <<'EOF'\nfix 👨‍💻\nEOF
+pr body-file with emoji	hit	gh pr create --title t --body-file body-emoji.md
+pr body-file plain	none	gh pr create --title t --body-file body-plain.md
+echo is not examined	none	echo "🤖"
+warning sign with VS16	hit	git commit -m "note ⚠️"
+gh api pull request body	hit	gh api repos/o/r/pulls -f body="ok 🚀"
+tag message	hit	git tag -a v1 -m "release 🎉"
