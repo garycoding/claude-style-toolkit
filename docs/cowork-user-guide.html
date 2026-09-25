@@ -321,22 +321,38 @@ three colours used consistently: navy, turquoise, chrome, on a pale sky ground.
     <!-- 5. UPDATE -->
     <section class="task" id="update">
       <div class="task-head"><span class="task-num">5</span><h2 class="task-title">Update the plugin</h2></div>
-      <p>When a new version of the toolkit is published, the
-      <code>self-update</code> skill brings you to it. This exists because the
-      ordinary install command does not upgrade a plugin that is already
-      installed; <code>self-update</code> does the whole thing for you.</p>
+      <p>Run the <code>self-update</code> skill once and the toolkit keeps
+      itself current from then on: it turns on automatic updates for the
+      toolkit's catalogue and brings the plugin up to date now.</p>
       <ol class="steps">
         <li>In a Cowork chat, type <code>/edgar-style-policy:self-update</code>.</li>
-        <li>Claude refreshes the catalogue, checks your installed version against
-        the latest, and, if a newer one exists, updates it for you and names the
+        <li>Claude turns on automatic updates, checks your installed version
+        against the latest, and, if a newer one exists, updates it and names the
         new version and what it adds. No password is needed.</li>
       </ol>
       <div class="reopen">
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><g transform="translate(8,8)" fill="none" stroke="#7e6410" stroke-width="1.4" stroke-linecap="round"><path d="M -5 0 A 5 5 0 1 1 -1.4 4.7"/><path d="M -1.4 4.7 l -2 -0.6 M -1.4 4.7 l 0.6 -2"/></g></svg>
         <span><b>Then:</b> quit (<kbd>&#8984;Q</kbd>) and reopen to load the new version.</span>
       </div>
-      <p class="fineprint">If Claude reports you are already on the latest
-      version, there is nothing to do.</p>
+      <p class="fineprint">After that, new versions arrive by themselves and
+      take effect the next time you open the app. An update replaces the
+      toolkit, not your deployed style; when a new version changes what a
+      style installs, its notes say so, and
+      <code>/edgar-style-policy:style-maintain</code> brings your style up to
+      date.</p>
+    </section>
+
+    <!-- 5a. REVIEW -->
+    <section class="task" id="review">
+      <div class="task-head"><span class="task-num">5a</span><h2 class="task-title">Have a draft reviewed against your style</h2></div>
+      <p>Before something leaves your hands (a press release, a letter, a
+      post), you can ask Claude to check it against your active style.</p>
+      <ol class="steps">
+        <li>In a Cowork chat, type <code>/edgar-style-policy:style-review</code>
+        and say which draft: paste it, name the file, or say "your last reply".</li>
+        <li>Claude lists each place the draft departs from your style, with the
+        rule and a suggested rewrite, and asks which rewrites to apply.</li>
+      </ol>
     </section>
 
     <!-- 6. UNINSTALL -->

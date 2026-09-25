@@ -6,238 +6,274 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 
 # Architecture
 
-How the toolkit turns one writing-style directive into enforced,
-long-context-durable policy, and the exact steps of each process. The
-README covers what the toolkit is and how to install it; this document
-covers how and why it works.
+How the toolkit turns one writing-style directive into policy that holds
+in long sessions, and the exact steps of each process. The README covers
+what the toolkit is and how to install it; this document covers how and
+why it works.
 
-## The four layers
+## The layers and the layer record
 
-A directive is deployed to four seats at once because instruction
-adherence erodes in long sessions, and each seat fails differently:
+A style is deployed as its directive plus the layers its record turns on.
+The record is a file named `layers` in the style's library folder, one
+`<layer>=on` line per layer; the directive itself is always deployed.
 
-| Layer | Artifact | Seat | Failure mode it covers |
+| Layer | Artifact | Seat | What it covers |
 |---|---|---|---|
-| 1 | CLAUDE.md (managed or user tier) | Primacy; re-read from disk at every compaction | Baseline presence |
-| 2 | Output style | End of the system prompt; survives everything | Attention dilution |
-| 3 | Digest hook (`UserPromptSubmit`, command type) | Recency; ~70 tokens with every prompt | Distance from the point of generation in very long sessions |
-| 4 | Judgment-review hook (`Stop`, prompt type) | End of every turn | Drift past the soft layers |
+| directive | CLAUDE.md (managed or user tier) | A user message after the system prompt, in the main session and in every subagent except the built-in Explore and Plan agents; re-read at compaction | The rules, in full |
+| `digest` | `UserPromptSubmit` command hook | With every prompt | Distance from the point of writing in a long session |
+| `commit-emoji-check` | `PreToolUse` command hook, matcher Bash | Before a git or gh command runs | Emoji in a commit message or pull-request text, for a style that bars them as a means of expression |
+| `output-style` (older) | Output-style file and `outputStyle` | The main session's system prompt only | Superseded; see below |
+| `output-style-coding` (older) | `keep-coding-instructions: true` in that file | — | Keeps Claude Code's software engineering instructions beside an output style |
+| `stop-review` (older) | `Stop` prompt hook | After every reply | Superseded; see below |
 
-Layer 4 is judgment, not string matching, by deliberate decision. A
-small model evaluates each reply against a review prompt structured as
-an ordered decision list: exemptions first (the user explicitly asked
-for the element; the element is mentioned, not used), violations after
-(only what the directive actually bans — decorative emoji, flattery
-openers, the banned-phrase list), default pass last. Ordering matters
-because a flat clause pile invites the evaluator to weigh clauses
-against each other; the list decides for it. The trade against a
-deterministic lint is explicit: judgment can occasionally misjudge,
-where a regex never wavers — but a regex cannot tell a quoted example
-from a violation, and confidently blocking legitimate prose is the
-worse failure for a writing tool. The inverse also holds and shapes the
-rest of the design: JSON validity is a question of form, not meaning,
-so it is always checked by a parser, never by the model that produced
-the JSON. Judgment for meaning, mechanism for form.
+A folder without a record predates it and deploys the original four
+layers (directive, output style, digest, review hook), so older styles keep
+working unchanged until `style-maintain` moves them.
 
-## Single source of truth and the two condensations
+Why the two older layers are no longer offered. The output style repeats
+the whole directive in the main session's system prompt; it never reaches
+subagents, it costs the whole directive again on every request, and a
+custom output style without `keep-coding-instructions` removes Claude
+Code's software engineering instructions from the session. The review
+hook had a small model judge every reply; a `Stop` hook runs after the
+reply is displayed, so each block showed the user an edited reply beneath
+the original, and in use (September 2026) it blocked on grounds its own
+prompt excluded and, once, looped. The judgement it attempted now belongs
+to the session's model: while writing, and on request through the
+`style-review` skill.
 
-The only editable artifact is the user's canonical directive (one
-Markdown file, durably located, ideally in a repo). Everything deployed
-is generated from it and never hand-edited; the managed tier is
-root-owned to enforce that mechanically.
+Judgment for meaning, mechanism for form. Whether a phrase is used or
+quoted, figurative or literal, an emoji expressive or under discussion, is
+a judgement. A script is used only for facts it can establish exactly, and
+even then it asks rather than decides: the commit check finds an emoji
+code point, refuses once, and leaves the model to judge; re-running the
+command unchanged is the model's judgement that the emoji is mentioned.
+The same principle keeps JSON validity a matter for a parser, never for
+the model that produced the JSON.
 
-Two artifacts are condensations rather than copies, and therefore can
-drift semantically: the digest text and the review prompt. Both carry a
-standing obligation — reviewed against the directive on every canonical
-edit — stated in the skills at generation time and enforced as step one
-of every redeploy. The review prompt additionally carries the literal
-marker `[writing-style-policy]` as its first characters; that marker is
-how the uninstallers identify our hook among any others.
+## Single source of truth and the condensation
+
+The only editable artifact is the canonical directive in the style's
+library folder. Everything deployed is generated from it and never
+hand-edited; the managed tier is root-owned to enforce that mechanically.
+
+One artifact is a condensation rather than a copy, and can therefore drift
+semantically: the digest. It carries a standing obligation, reviewed
+against the directive on every canonical edit, stated in the skills at
+generation time and enforced as step one of every redeploy. An older
+style's review prompt carries the same obligation while its hook is
+deployed, and its literal marker `[writing-style-policy]` as its first
+characters is how the installers and uninstallers identify that hook.
 
 ## Artifacts by location
 
 ```
-Toolkit repo (this repo)         skills, templates, scripts, json-tool.sh
+Toolkit repo (this repo)         skills, templates, scripts, json-tool.sh, tests
 Style library (~/.claude/         one folder per style, <slug>/: canonical.md,
-  edgar-style-policies)          digest.sh, review-prompt.txt, VERIFIED.md — the
-                                 persistent bundle that also serves as the
-                                 installer's staging directory
+  edgar-style-policies)          layers, digest.sh, VERIFIED.md (and, for an
+                                 older style, review-prompt.txt) — the persistent
+                                 bundle that also serves as the installer's
+                                 staging directory
 User tier (~/.claude)            writing-style.md, @import line in CLAUDE.md,
-                                 output-styles/<slug>.md, hooks/style-digest.sh,
-                                 settings.json entries (outputStyle, digest
-                                 command hook, marker prompt hook)
+                                 hooks/style-digest.sh, hooks/style-emoji-check.sh
+                                 with hooks/style-json-tool.sh, settings.json
+                                 entries; for an older style, output-styles/<slug>.md
+                                 and outputStyle
 Managed tier (per OS)            /Library/Application Support/ClaudeCode or
-                                 /etc/claude-code: CLAUDE.md, hooks/style-digest.sh,
-                                 .claude/output-styles/<slug>.md,
-                                 managed-settings.json entries (same three)
+                                 /etc/claude-code: CLAUDE.md, .edgar-style-policy
+                                 (the sidecar record), the same hook files,
+                                 managed-settings.json entries; for an older
+                                 style, .claude/output-styles/<slug>.md; a foreign
+                                 CLAUDE.md kept as CLAUDE.md.pre-edgar-style-policy
 Home directory (transient)       install_claude_writing_style.sh /
                                  uninstall_claude_writing_style.sh — the
                                  self-contained sudo scripts; self-delete on
                                  success
+User state                       ${XDG_STATE_HOME:-~/.local/state}/edgar-style-policy/
+                                 emoji-seen — fingerprints of messages the commit
+                                 check has refused once (last 50)
 ```
 
-The style name chosen at authoring is load-bearing: the installers take
-it as an argument, the slug (output-style filename) derives from it, and
-the uninstallers compare it against `outputStyle`, and it keys the style
-library (the `<slug>` folder name). It must stay identical across
-authoring, switching, maintenance, and removal; `VERIFIED.md`, written
-into the style's library folder (and beside the canonical too, if a
-separate repo master is kept), records it along with the tier, the
-canonical path, and the intake scenarios.
+The style name chosen at authoring keys the library: the installers take
+it as an argument, and the slug (the folder name, and an output-style file
+name for an older style) derives from it. It must stay identical across
+authoring, switching, maintenance, and removal; `VERIFIED.md` records it
+with the tier, the layers, and the intake scenarios.
 
 ## The style library and switching
 
 Authored styles are kept, one folder per style, under
-`~/.claude/edgar-style-policies/<slug>/`, each a full deployable bundle:
-`canonical.md`, `digest.sh`, `review-prompt.txt`, and `VERIFIED.md`. The
-three deployable files are exactly the installer's staging inputs, so a
-style's library folder is at once its permanent record and its staging
-directory — no separate `mktemp` is used for authoring, maintenance, or
-switching.
+`~/.claude/edgar-style-policies/<slug>/`. The deployable files are exactly
+the installer's staging inputs, so a style's library folder is at once its
+permanent record and its staging directory — no separate `mktemp` is used
+for authoring, maintenance, or switching.
 
 There is no separate registry of stored styles or of which is active. The
-set of styles is the set of library folders; the active style is whichever
-the live `outputStyle` names, matched back to a folder by the display name
-in its `VERIFIED.md`. A derived pointer cannot fall out of sync with a
-stored one.
+set of styles is the set of library folders; the active style is the one
+whose `canonical.md` matches the deployed directive (the managed
+`CLAUDE.md`, or `~/.claude/writing-style.md`), compared after normalising
+trailing newlines. A derived identification cannot fall out of sync with a
+stored pointer. (`outputStyle` served this purpose while every style
+deployed an output style; it cannot now that the layer is optional.)
 
-Switching is redeploy, not a new mechanism. Because a single install run
-already repoints all four layers coherently in one settings merge,
-switching to a stored style is exactly: point the tier's installer at that
-style's library folder and run it. Nothing is made dynamic; the four
-layers are rewritten, and session-start binding means a restart is
-required regardless, so pre-deploying inactive layers would gain nothing.
-Only one style is active at a time — the previous style's
-`output-styles/<old-slug>.md` file stays on disk but is inert, since
-`outputStyle` selects by name. At the user tier a switch is automatic and
-needs no elevation; at the managed tier it is one `sudo` per switch by
-nature, which is why a switching workflow is most ergonomic at the user
-tier while the managed tier suits a locked house style. A switch is not
-transactional: the installer backs up settings and writes each layer, so
-an interruption can leave the directive swapped while `outputStyle` still
-names the previous style; recovery is re-running the same idempotent
-installer, and the post-restart verification catches a partial apply.
+Switching is redeploy, not a new mechanism: point the tier's installer at
+the target's library folder and run it. Because the installers bring the
+tier exactly into line with the target's record, a layer the previous
+style had and the target lacks is removed, and every output-style file the
+toolkit generated is removed before the target's (if any) is written. At
+the user tier a switch is automatic and needs no elevation; at the managed
+tier it is one `sudo` per switch, which is why a switching workflow is most
+ergonomic at the user tier while the managed tier suits a locked house
+style. A switch is not transactional: an interruption can leave the
+directive swapped while the settings still carry the previous style's
+entries; recovery is re-running the same idempotent installer, and the
+post-restart verification catches a partial apply.
 
 ## The JSON engine ladder
 
-All JSON work — encoding the settings fragment, merging it into
-existing settings, stripping it back out, validating — runs through one
-shared library, `scripts/json-tool.sh`, identically on macOS and Linux:
+All JSON work — encoding the settings fragment, bringing existing settings
+into line with it, stripping it back out, validating, and the commit
+check's scan — runs through one shared library, `scripts/json-tool.sh`,
+identically on macOS and Linux:
 
 1. Engine detection, in order: `python3` if it actually executes (an
    execution test, because a Mac without Command Line Tools has a stub
    that resolves on PATH but fails); else `osascript`'s JavaScript
-   engine (present on every Mac); else `node`. In practice at least one
-   exists on every supported machine.
-2. Four pure transforms — `fragment`, `merge`, `strip`, `validate` —
-   with inputs passed via environment variables and results on stdout.
-   No engine touches the filesystem; the calling shell does all reads,
-   backups, and writes. The logic exists exactly twice: once in Python,
-   once in an engine-neutral JavaScript core shared by thin osascript
-   and node wrappers.
+   engine (present on every Mac); else `node`.
+2. Five transforms — `fragment`, `merge`, `strip`, `validate`,
+   `emoji-scan` — with inputs passed via environment variables and results
+   on stdout. The settings transforms touch no file; the calling shell
+   does all reads, backups, and writes. `emoji-scan` alone reads, never
+   writes, the message files a git or gh command names. The logic exists
+   exactly twice: once in Python, once in an engine-neutral JavaScript core
+   shared by thin osascript and node wrappers.
+3. Shell helpers used by every script: `read_layers` (the record, or the
+   original four when absent), `toolkit_style_files` and
+   `toolkit_style_names` (output-style files the toolkit generated,
+   recognised by the description line it writes), and `norm_sha256` (a
+   file's SHA-256 with trailing newlines removed). They are written to be
+   safe under `set -euo pipefail`.
 
-When no engine exists at all, the guiding model performs the transform
-itself — it reads the target settings (the managed file is root-owned
-but world-readable), merges or strips, and the result must pass
-mechanical validation before anything is written; with no mechanical
-validator of any kind available, the skills stop rather than deploy
-unvalidated content. Two engine-parity limitations are accepted and
-documented rather than fixed: the JavaScript rungs lose integer
-precision above 2^53 and reorder integer-like object keys (neither
-occurs in real Claude Code settings), while output is otherwise
-byte-identical across engines, including non-ASCII text. The engines
-are kept, rather than making the model the only merger, for three
-reasons: a parser is an independent check on model-produced JSON (the
-model checking its own output is a correlated failure); the scripts
-must work standalone, with no model in the loop; and the emitted sudo
-scripts run where no model can be present at all.
+`merge` brings the settings exactly into line with the fragment: it
+removes every toolkit entry (hooks whose command names `style-digest.sh`
+or `style-emoji-check.sh`, a Stop prompt hook with the marker, and an
+`outputStyle` naming a toolkit style) and then adds the fragment's. So a
+redeploy is idempotent, and a dropped layer stays dropped.
+
+The emoji scan matches explicit code-point ranges rather than Unicode
+properties, since engine Unicode versions differ (macOS perl carries
+Unicode 13): U+1F000 to U+1FAFF, U+1FC00 to U+1FFFD, the Basic
+Multilingual Plane characters whose default presentation is emoji, U+FE0F,
+U+20E3, and U+E0020 to U+E007F. It does not match text-default symbols
+such as ©, ™, ✓, arrows, box drawing, or ⚠ without U+FE0F. It examines
+only commands that record a message (git commit, merge, tag; gh pr create,
+edit, comment, review, merge; gh api), the whole command string, and the
+files named by `-F`, `--file`, `--body-file`, or `--input`. It cannot see
+text built from variables or command substitution, messages written by git
+hooks, aliases or scripts, MCP GitHub tools, or pull requests made in a
+desktop interface. The hook fails open: without an engine, or on input it
+cannot read, the command passes.
+
+When no engine exists at install time, the guiding model performs the
+settings transform itself — it reads the target settings (the managed file
+is root-owned but world-readable), brings them into line, and the result
+must pass mechanical validation before anything is written; with no
+mechanical validator of any kind available, the skills stop rather than
+deploy unvalidated content. Two engine-parity limitations are accepted:
+the JavaScript rungs lose integer precision above 2^53 and reorder
+integer-like object keys (neither occurs in real Claude Code settings),
+while output is otherwise byte-identical across engines, including
+non-ASCII text. The engines are kept, rather than making the model the
+only merger, for three reasons: a parser is an independent check on
+model-produced JSON; the scripts must work standalone, with no model in
+the loop; and the emitted sudo scripts run where no model can be present.
 
 ## Build time versus run time: the sudo boundary
 
 The harness cannot enter passwords, so managed-tier changes split into
 two moments. At build time — inside the skill session, where the model
-is present — the directive is finished, the condensations are written,
-the review prompt is sandbox-tested (`claude -p --settings` against a
-throwaway settings file, one clear-violation probe and one mention
-probe), the fragment is encoded and validated, and the builder emits a
+is present — the directive is finished, the digest written, the layer
+record set, the fragment encoded and validated, the hashes of every
+canonical in the library taken (so the run-time script can tell the
+toolkit's own `CLAUDE.md` from a foreign one), and the builder emits a
 single self-contained script into the home directory with every payload
 inlined in quoted heredocs (collision-guarded sentinels) and the engine
 library embedded. At run time — the user typing `sudo` in a terminal —
-the emitted script is on its own: it detects its OS, substitutes the
+the emitted script is on its own: it detects its OS, keeps a foreign
+`CLAUDE.md` aside, writes the directive and the sidecar record, removes
+the layers the record lacks and writes those it has, substitutes the
 per-OS hooks path into the fragment, walks the settings ladder
-(any-engine live merge, preserving all foreign settings and replacing
-only our marker-tagged entries; else the model's build-time pre-merge;
-else, installer only, an announced backup-and-replace), root-owns the
-tree, prints verification steps, and deletes itself. The script is
-deliberately human-readable so it can be inspected before it is run as
-root.
+(any-engine live merge, preserving all foreign settings; else the model's
+build-time pre-merge; else, installer only, an announced
+backup-and-replace), root-owns the tree, prints verification steps, and
+deletes itself. The script is deliberately human-readable so it can be
+inspected before it is run as root.
 
 ## Process walkthroughs
 
 **Author and deploy** (`style-author`): gather exemplar documents and
 any existing draft, proactively, both by name; interview only for the
-gaps (voice irritations, banned phrases, claims policy, formatting,
-scenarios); synthesize one complete first draft; iterate to the user's
-satisfaction through the contradiction pass (persona anchors, self-
-violations, prohibitions that should be labeling regimes, missing
-scope/precedence) and a fresh-eyes review by three context-free
-subagents; generate digest and review prompt; check for an existing
+gaps (voice irritations, banned phrases, emoji, claims policy,
+formatting, scenarios); synthesize one complete first draft; iterate to
+the user's satisfaction through the contradiction pass and a fresh-eyes
+review by three context-free subagents; write the digest; choose the
+layers with the user and write the record; check for an existing
 installation (deploying user-tier under a live managed policy silently
-never activates); sandbox-test the review prompt; ask the user's tier;
-stage into the style's library folder (which persists as its bundle); run
-`install-user.sh` directly or emit the sudo installer; verify in a fully
-restarted session (a `/clear` does not reload session-fixed layers);
-record `VERIFIED.md` in the library folder.
+never activates); ask the user's tier; stage into the style's library
+folder; run `install-user.sh` directly or emit the sudo installer; verify
+in a fully restarted session; record `VERIFIED.md` in the library folder.
 
-**Update** (`style-maintain`): audit first — deployed copies diffed
-against the canonical (normalizing packaging newlines), both
-condensations reviewed, ownership and settings entries checked, live
+**Review a draft** (`style-review`): on the user's request only; find the
+active directive and read it in full; review the named draft against every
+section, with judgement on use and mention; report each departure with
+its location, the rule, and a rewrite; apply only the rewrites the user
+accepts.
+
+**Update** (`style-maintain`): audit first — the deployed directive diffed
+against the canonical (normalising packaging newlines), the digest
+reviewed, ownership and settings checked against the layer record, live
 layers confirmed. Rework from evidence: new exemplars and concrete
-unwanted behaviors, one change per verdict, to the user's satisfaction.
-Redeploy: re-review both condensations, re-stage into the library folder
-(refreshing its bundle), rerun the tier's installer, restart, re-verify. Troubleshooting and the
-platform-health check (managed source via `/status`, output-style
-support, plugin overrides, hook execution) live here too.
+unwanted behaviors, one change per verdict. Redeploy: re-review the
+digest, re-stage into the library folder, rerun the tier's installer,
+restart, re-verify. Troubleshooting, the platform-health check, and the
+move of an older style to the current layer set live here too.
 
-**Uninstall** (`style-uninstall`): confirm intent; determine the exact
-style name from `outputStyle` (the filename is only the slug); settings
-surgery first — remove the digest entry by filename, the review hook by
-marker, `outputStyle` only if it names this style; everything else is
-preserved, and a failed surgery leaves the installation intact rather
-than dangling. Files are removed only after the surgery succeeds; the
-managed directory is removed only if genuinely empty; if the settings
-file held nothing but our policy, the file and this run's backup go
-with it. The canonical directive is never touched.
+**Uninstall** (`style-uninstall`): confirm intent; identify the style by
+its deployed directive; settings surgery first — remove every toolkit
+entry; everything else is preserved, and a failed surgery leaves the
+installation intact rather than dangling. Files are removed only after
+the surgery succeeds; the managed `CLAUDE.md` only if it is the toolkit's
+own, with a kept-aside foreign one restored; the managed directory only
+if genuinely empty. The style library is never touched.
 
 **Migrate** (`style-maintain`): deploy the target tier first, verify it,
 then remove the old tier with the uninstall machinery — the machine is
 never left with no policy mid-migration.
 
-**Switch** (`style-switch`): list the library (its folders, the active one
-marked by the live `outputStyle`); resolve the target name to its folder,
-refusing an incomplete bundle or the already-active style; detect the
-installed tier; run that tier's installer against the target's library
-folder (automatic at the user tier, the emitted sudo installer at the
-managed tier); restart and verify. It deploys nothing new — it reuses the
-same installers over a stored bundle.
+**Switch** (`style-switch`): list the library, marking the active style;
+resolve the target to its folder, refusing an incomplete bundle or the
+already-active style; detect the installed tier; run that tier's installer
+against the target's folder; restart and verify.
 
-**Self-update** (`self-update`): refresh the marketplace clone, compare the
-installed version against the marketplace's, and, if newer, run `claude
-plugin update` in place; the user applies it with a single `/reload-plugins`
-(or a restart) — the one step a skill cannot take for itself, since an
-agent cannot reload its own session. It touches the plugin software, not
-any policy the toolkit deploys.
+**Self-update** (`self-update`): set `autoUpdate` on the marketplace's
+`extraKnownMarketplaces` entry in `~/.claude/settings.json` (backup
+first), so Claude Code updates the plugin in the background from then on;
+refresh the marketplace and update the plugin once now; the user applies
+it with `/reload-plugins` or a restart. A plugin update replaces the
+toolkit, not a deployed style.
 
 ## Invariants
 
 - Deployed copies are never hand-edited; the fix for drift is redeploy.
-- Settings surgery touches only our entries: the digest hook, matched
-  by the `style-digest.sh` filename appearing in its command (a foreign
-  hook whose command contains that substring would be treated as ours —
-  the name is reserved to this toolkit); the review hook, matched by the
-  prompt marker; and `outputStyle`, which install takes over (a prior
-  selection survives only in the backup, and uninstall says so). All
-  other hooks and settings survive install, reinstall, and uninstall.
+- The tier matches the style's layer record after every install: toolkit
+  entries the record lacks are removed, those it has are present once.
+- Settings surgery touches only our entries: hooks whose command names
+  `style-digest.sh` or `style-emoji-check.sh` (names reserved to this
+  toolkit), the review hook by its prompt marker, and an `outputStyle`
+  naming a toolkit-generated style. All other hooks and settings survive
+  install, reinstall, and uninstall.
+- A managed `CLAUDE.md` that is not the toolkit's own is never lost: it is
+  kept aside at install and restored at uninstall.
 - No mutation before preflight passes, with one scoped exception: the
   user-tier scripts and both uninstallers abort with nothing changed on
   any preflight failure; the emitted installer instead terminates every
@@ -245,26 +281,21 @@ any policy the toolkit deploys.
   last resort.
 - Every settings write is preceded by a timestamped backup.
 - Model-produced JSON is never deployed unvalidated.
-- Authored styles persist in the library (`~/.claude/edgar-style-policies/`)
-  independently of what is deployed; uninstall removes the active
-  deployment but never the library, so a removed style can be switched
-  back. The active style's library bundle equals the live deployment,
-  audited on maintenance, so switching away and back is a no-op.
-- Generated user content — the directive, its deployed copies, the
-  digest, the review prompt — carries no license; it is the user's own
-  work (see LICENSING.md).
+- Authored styles persist in the library independently of what is
+  deployed; uninstall removes the active deployment but never the library.
+- Generated user content — the directive, its deployed copies, the digest
+  — carries no license; it is the user's own work (see LICENSING.md).
 
-## Testing discipline
+## Testing
 
-The discipline for changing any script — prescribed here; the harness
-is rebuilt in a scratch directory per run rather than committed: test
-by fixture, not inspection. User-tier install/uninstall round-trips
-asserting foreign hooks and unrelated settings survive, run once per
-engine by forcing `JSON_TOOL_ENGINE`; emitted sudo scripts checked for
-valid syntax with the library inlined, payloads extracted back out and
-diffed against their sources, and the runtime settings ladder executed
-in scratch with the managed paths overridden; the merge and strip
-transforms exercised against mixed fixtures (ours-only collapses to
-nothing; foreign entries persist; non-object roots rejected). Review
-prompts are tested behaviorally before deployment via the sandbox
-probes.
+`tests/run-tests.sh` is the committed harness. It runs in a scratch
+directory, touching neither `~/.claude` nor the managed directory, once
+per available engine (forced with `JSON_TOOL_ENGINE`): the migration from
+the four older layers to a record, merge idempotence, the strip, the emoji
+scan on the table in `tests/fixtures/emoji-cases.tsv`, the hook's single
+refusal and fail-open behaviour, a user-tier round trip that must restore
+the original settings, and a managed-tier round trip (the emitted scripts
+with the managed path and the root-only lines overridden) in which a
+foreign `CLAUDE.md` and a foreign setting must both survive. Its fixtures
+are synthetic. Change any script only with the harness passing on every
+engine.
