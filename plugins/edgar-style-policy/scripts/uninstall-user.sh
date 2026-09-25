@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # User-tier uninstaller — NO sudo. Removes the deployed style policy from
-# ~/.claude, leaving the canonical directive in the user's repo untouched.
-# Settings surgery runs FIRST, so a failure leaves the install intact
-# rather than dangling; files are removed only after it succeeds. Only the
-# policy's own entries are touched: the digest hook is matched by its
-# filename and the review hook by the "[writing-style-policy]" marker —
-# any other hooks or settings the user has are preserved. JSON work runs
-# on whichever engine the machine has (python3, osascript, or node).
+# ~/.claude, leaving the style library untouched. Settings surgery runs
+# FIRST, so a failure leaves the install intact rather than dangling; files
+# are removed only after it succeeds. Only the policy's own entries are
+# touched: hooks whose command names style-digest.sh or style-emoji-check.sh,
+# the review hook by its "[writing-style-policy]" marker, and outputStyle
+# when it names this style or another style the toolkit generated. Any other
+# hooks or settings are preserved. JSON work runs on whichever engine the
+# machine has (python3, osascript, or node).
 #
 # Usage: uninstall-user.sh [style-name]
 set -euo pipefail
@@ -19,10 +20,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/json-tool.sh"
 
 STYLE_NAME="${1:-Writing Style}"
-SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
-[[ -n "$SLUG" ]] || SLUG="writing-style"
 CLAUDE_DIR="${HOME}/.claude"
 HOOKS_DIR="${CLAUDE_DIR}/hooks"
+STYLES_DIR="${CLAUDE_DIR}/output-styles"
 STAMP="$(date +%Y%m%d%H%M%S).$$"
 
 # Settings surgery first (with backup): remove our keys, preserve the rest.
@@ -40,7 +40,8 @@ if [[ -f "$S" ]]; then
         echo "Fix or remove it, then rerun. Nothing has been changed." >&2
         exit 1
     fi
-    CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" json_transform strip)"
+    CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" \
+        TOOLKIT_STYLES="$(toolkit_style_names "$STYLES_DIR")" json_transform strip)"
     cp "$S" "${S}.bak.${STAMP}"
     printf '%s\n' "$CLEANED" > "$S"
 fi
@@ -57,10 +58,12 @@ if [[ -f "$CM" ]]; then
     rm -f "${CM}.tmp"
 fi
 
+toolkit_style_files "$STYLES_DIR" | while IFS= read -r f; do rm -f "$f"; done
 rm -f "${CLAUDE_DIR}/writing-style.md" \
-      "${CLAUDE_DIR}/output-styles/${SLUG}.md" \
-      "${HOOKS_DIR}/style-digest.sh"
+      "${HOOKS_DIR}/style-digest.sh" \
+      "${HOOKS_DIR}/style-emoji-check.sh" \
+      "${HOOKS_DIR}/style-json-tool.sh"
 
 echo "Removed user-tier policy for style: ${STYLE_NAME}"
-echo "The canonical directive in your repo is untouched; reinstall anytime."
+echo "The style library is untouched; reinstall or switch back at any time."
 echo "Fully quit and restart Claude Code; the style is no longer applied."

@@ -6,10 +6,16 @@
 # user's home directory as uninstall_claude_writing_style.sh. The harness
 # cannot elevate, so the user runs it: sudo ~/uninstall_claude_writing_style.sh
 # The emitted uninstaller performs the settings surgery FIRST (removing only
-# our keys: the digest hook by filename, the review hook by its
-# "[writing-style-policy]" marker, and outputStyle if it names our style),
-# then removes our files, then removes the managed directory only if empty,
-# and deletes itself.
+# our entries: hooks whose command names style-digest.sh or
+# style-emoji-check.sh, the review hook by its "[writing-style-policy]"
+# marker, and outputStyle if it names this style or another style the
+# toolkit generated), then removes our files, then removes the managed
+# directory only if empty, and deletes itself.
+#
+# The managed CLAUDE.md is removed only when it is the toolkit's own (it
+# matches the sidecar record .edgar-style-policy or a canonical in the style
+# library); otherwise it is left in place, with the reason printed. A
+# CLAUDE.md.pre-edgar-style-policy kept by the installer is restored.
 #
 # The surgery runs on whichever JSON engine the target machine has (python3,
 # osascript on macOS, or node — via the inlined json-tool.sh). Without any
@@ -17,7 +23,7 @@
 # and validated) is applied; with neither, the uninstaller aborts before
 # touching anything.
 #
-# Usage: build-managed-uninstaller.sh [style-name] [output-path] [precleaned-settings-file]
+# Usage: build-managed-uninstaller.sh [style-name] [output-path] [precleaned-settings-file] [library-dir]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -27,6 +33,7 @@ source "${SCRIPT_DIR}/json-tool.sh"
 STYLE_NAME="${1:-Writing Style}"
 OUTPUT="${2:-${HOME}/uninstall_claude_writing_style.sh}"
 PRECLEANED="${3:-}"
+LIBRARY="${4:-${HOME}/.claude/edgar-style-policies}"
 SLUG=$(printf '%s' "$STYLE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//;s/-$//')
 [[ -n "$SLUG" ]] || SLUG="writing-style"
 if [[ -n "$PRECLEANED" ]]; then
@@ -34,6 +41,10 @@ if [[ -n "$PRECLEANED" ]]; then
     EXISTING="$(cat "$PRECLEANED")" json_transform validate >/dev/null || {
         echo "Pre-cleaned settings file is not valid JSON: $PRECLEANED" >&2; exit 1; }
 fi
+OURS_SHAS=""
+for c in "${LIBRARY}"/*/canonical*; do
+    [[ -f "$c" ]] && OURS_SHAS+="$(norm_sha256 "$c") "
+done
 
 {
     cat <<'HDR'
@@ -50,7 +61,7 @@ TARGET_USER="${SUDO_USER:?Run via sudo from your normal account, not a root shel
 HDR
     cat "${SCRIPT_DIR}/json-tool.sh"
     printf -- '# --- end json-tool.sh ---\n'
-    printf 'STYLE_NAME=%q\nSLUG=%q\n' "$STYLE_NAME" "$SLUG"
+    printf 'STYLE_NAME=%q\nSLUG=%q\nOURS_SHAS=%q\n' "$STYLE_NAME" "$SLUG" "$OURS_SHAS"
     if [[ -n "$PRECLEANED" ]]; then
         printf 'PRECLEANED=$(cat <<'\''__CS_PRECLEANED_EOF__'\''\n'
         cat "$PRECLEANED"
@@ -66,7 +77,10 @@ case "$(uname -s)" in
 esac
 HOOKS_DIR="${MANAGED_DIR}/hooks"
 STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
+CM="${MANAGED_DIR}/CLAUDE.md"
+SIDECAR="${MANAGED_DIR}/.edgar-style-policy"
 STAMP="$(date +%Y%m%d%H%M%S).$$"
+TOOLKIT_STYLES="$(toolkit_style_names "$STYLE_DIR")"
 
 ENGINE="$(detect_json_engine)"
 if [[ -z "$ENGINE" && -z "$PRECLEANED" ]]; then
@@ -87,7 +101,8 @@ if [[ -f "$MS" ]]; then
     CLEANED=""
     if [[ -n "$ENGINE" ]]; then
         EXISTING="$(cat "$MS")"
-        CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" json_transform strip)" || CLEANED=""
+        CLEANED="$(STYLE="$STYLE_NAME" EXISTING="$EXISTING" TOOLKIT_STYLES="$TOOLKIT_STYLES" \
+            json_transform strip)" || CLEANED=""
     fi
     if [[ -z "$CLEANED" && -n "$PRECLEANED" ]]; then
         CLEANED="$PRECLEANED"
@@ -108,10 +123,29 @@ if [[ -f "$MS" ]]; then
     fi
 fi
 
-# Now the files.
-rm -f "${MANAGED_DIR}/CLAUDE.md" \
-      "${HOOKS_DIR}/style-digest.sh" \
-      "${STYLE_DIR}/${SLUG}.md"
+# The managed CLAUDE.md: removed only if it is the toolkit's own.
+if [[ -f "$CM" ]]; then
+    H="$(norm_sha256 "$CM")"
+    OURS=0
+    if [[ -f "$SIDECAR" ]] && command -p grep -qx "sha256=${H}" "$SIDECAR"; then OURS=1; fi
+    for k in $OURS_SHAS; do if [[ "$k" == "$H" ]]; then OURS=1; fi; done
+    if [[ $OURS -eq 1 ]]; then
+        rm -f "$CM"
+    else
+        echo "Left ${CM} in place: it matches neither the toolkit's record nor any style in the library."
+    fi
+fi
+if [[ -f "${CM}.pre-edgar-style-policy" && ! -e "$CM" ]]; then
+    mv "${CM}.pre-edgar-style-policy" "$CM"
+    echo "Restored the managed CLAUDE.md that was there before the toolkit's install."
+fi
+
+# Now the other files.
+toolkit_style_files "$STYLE_DIR" | while IFS= read -r f; do rm -f "$f"; done
+rm -f "${HOOKS_DIR}/style-digest.sh" \
+      "${HOOKS_DIR}/style-emoji-check.sh" \
+      "${HOOKS_DIR}/style-json-tool.sh" \
+      "$SIDECAR"
 
 # Remove now-empty policy directories; leave the managed dir in place if it
 # still holds anything (other managed settings, older backups).
@@ -123,7 +157,7 @@ else
 fi
 
 echo "Uninstalled managed-tier policy for style: ${STYLE_NAME}"
-echo "The canonical directive in your repo is untouched; reinstall anytime."
+echo "The style library is untouched; reinstall or switch back at any time."
 echo "Fully quit and restart Claude Code; the style is no longer applied."
 
 SELF="$0"
