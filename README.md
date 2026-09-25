@@ -52,7 +52,7 @@ that says what is deployed besides the directive itself:
 |---|---|---|
 | directive (always) | Managed `CLAUDE.md`, or `~/.claude/writing-style.md` imported from `~/.claude/CLAUDE.md` | The full rules in every session's context, the main session and subagents alike (except the built-in Explore and Plan agents); re-read at compaction |
 | `digest` | `UserPromptSubmit` command hook | A short restatement of the rules most often broken, injected with every prompt, so they stay close to the point of writing in a long session |
-| `commit-emoji-check` | `PreToolUse` command hook on Bash | For a style that bars emoji as a means of expression: refuses once a git commit, tag or merge, or a gh pull-request command, whose message contains an emoji, and asks the model to judge; the unchanged rerun passes |
+| `commit-emoji-check` | `PreToolUse` command hook on Bash | For a style that bars emoji as a means of expression: refuses once a git commit, tag or merge, or a gh pull-request command, whose message contains an emoji, and asks the model to judge; the unchanged rerun passes. Set `attribution.pr` beside it, since Claude Code's default pull-request attribution line carries an emoji |
 
 Two older layers remain for styles made before the record existed, and are
 no longer offered by default. `output-style` repeated the whole directive

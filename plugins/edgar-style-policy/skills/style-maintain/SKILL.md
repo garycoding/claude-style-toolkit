@@ -229,8 +229,10 @@ engineering instructions; the review hook judges every reply after it is
 displayed, so each block shows an edited reply beneath the original.
 Offer the move, explain those two reasons once, and let the user choose.
 If they agree, write `layers` with `digest=on` (and `commit-emoji-check=on`
-if the directive bars emoji as a means of expression), then redeploy
-(Phase 7). The installers remove the output-style files, `outputStyle` and
+if the directive bars emoji as a means of expression, together with
+`attribution.pr` in `~/.claude/settings.json` set to
+`Generated with [Claude Code](https://claude.com/claude-code)`, since the
+default attribution line carries an emoji), then redeploy (Phase 7). The installers remove the output-style files, `outputStyle` and
 the review hook as part of that redeploy. The `review-prompt.txt` may stay
 in the folder; nothing deploys it once `stop-review` is off.
 

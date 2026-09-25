@@ -171,8 +171,13 @@ edit, comment, review, merge; gh api), the whole command string, and the
 files named by `-F`, `--file`, `--body-file`, or `--input`. It cannot see
 text built from variables or command substitution, messages written by git
 hooks, aliases or scripts, MCP GitHub tools, or pull requests made in a
-desktop interface. The hook fails open: without an engine, or on input it
-cannot read, the command passes.
+desktop interface, and it resolves a message file against the session's
+working directory even after a `cd` in the same command. The hook fails
+open: without an engine, on input it cannot read, or when its state
+directory cannot be written, the command passes. A text it has refused
+once passes from then on (its fingerprint ages out after 50 newer ones),
+so a retry after an unrelated failure, or two copies of the hook running
+at once, give the same answer.
 
 When no engine exists at install time, the guiding model performs the
 settings transform itself — it reads the target settings (the managed file
@@ -195,7 +200,9 @@ two moments. At build time — inside the skill session, where the model
 is present — the directive is finished, the digest written, the layer
 record set, the fragment encoded and validated, the hashes of every
 canonical in the library taken (so the run-time script can tell the
-toolkit's own `CLAUDE.md` from a foreign one), and the builder emits a
+toolkit's own `CLAUDE.md` from a foreign one; an install that predates the
+sidecar record is also recognised by the toolkit's other files and
+settings entries in the managed directory), and the builder emits a
 single self-contained script into the home directory with every payload
 inlined in quoted heredocs (collision-guarded sentinels) and the engine
 library embedded. At run time — the user typing `sudo` in a terminal —

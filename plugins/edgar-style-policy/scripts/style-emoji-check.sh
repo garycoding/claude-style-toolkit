@@ -18,18 +18,22 @@
 #      refused once, with the code points named and the judgement asked for.
 #   3. The same text submitted again passes: re-running the command
 #      unchanged is the model's judgement that the emoji is mentioned, not
-#      used. A fingerprint of the text is kept in the user's state directory.
+#      used. Fingerprints of refused texts are kept in the user's state
+#      directory (the last 50), and a known one always passes.
 # The check fails open: if no JSON engine is available or the input cannot
 # be read, the command passes, so a broken check never blocks git.
 # Stated limits: it cannot see text built from variables or command
 # substitution, messages written by git hooks, aliases or scripts, MCP
-# GitHub tools, or pull requests made in a desktop interface.
+# GitHub tools, or pull requests made in a desktop interface; a message file
+# named after a "cd" in the same command is resolved against the session's
+# working directory, not the directory changed to.
 
 INPUT="$(cat)"
-case "$INPUT" in
-    *git*|*gh*) ;;
-    *) exit 0 ;;
-esac
+# Fast path: only a command field that mentions git or gh is examined, so an
+# ordinary shell command starts no interpreter. (The pattern is held in a
+# variable for bash 3.2.)
+CMD_RE='"command"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*(git|gh)([[:space:]]|\\n|")'
+[[ "$INPUT" =~ $CMD_RE ]] || exit 0
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=json-tool.sh
@@ -50,14 +54,15 @@ STATE="${XDG_STATE_HOME:-${HOME}/.local/state}/edgar-style-policy"
 SEEN="${STATE}/emoji-seen"
 mkdir -p "$STATE" 2>/dev/null || exit 0
 if [[ -f "$SEEN" ]] && command -p grep -qxF "$FP" "$SEEN"; then
-    # Second submission of the same text: the model judged the emoji to be
-    # mentioned rather than used. Let it through and forget the fingerprint.
-    command -p grep -vxF "$FP" "$SEEN" > "${SEEN}.tmp" 2>/dev/null
-    mv -f "${SEEN}.tmp" "$SEEN" 2>/dev/null
+    # A later submission of the same text: the model judged the emoji to be
+    # mentioned rather than used. Let it through. The fingerprint is kept (it
+    # ages out below), so a retry after an unrelated failure also passes, and
+    # two copies of this hook running at once agree.
     exit 0
 fi
-printf '%s\n' "$FP" >> "$SEEN"
-tail -n 50 "$SEEN" > "${SEEN}.tmp" 2>/dev/null && mv -f "${SEEN}.tmp" "$SEEN" 2>/dev/null
+printf '%s\n' "$FP" >> "$SEEN" 2>/dev/null || exit 0
+TMP="$(mktemp "${STATE}/emoji-seen.XXXXXX" 2>/dev/null)" && \
+    { tail -n 50 "$SEEN" > "$TMP" && mv -f "$TMP" "$SEEN"; } 2>/dev/null || rm -f "$TMP" 2>/dev/null
 
 CODEPOINTS="${VERDICT#hit }"
 cat >&2 <<EOF

@@ -129,20 +129,27 @@ mkdir -p "$HOOKS_DIR" "$STYLE_DIR"
 # Style names the toolkit deployed before this run, read before any file changes.
 TOOLKIT_STYLES="$(toolkit_style_names "$STYLE_DIR")"
 
-# Protect a managed CLAUDE.md that is not the toolkit's own.
+# Protect a managed CLAUDE.md that is not the toolkit's own. It is the
+# toolkit's own when it matches the sidecar record or a library canonical, or,
+# for an install that predates the sidecar, when the managed directory
+# carries the toolkit's other files or settings entries.
 if [[ -f "$CM" ]]; then
     H="$(norm_sha256 "$CM")"
     OURS=0
     if [[ -f "$SIDECAR" ]] && command -p grep -qx "sha256=${H}" "$SIDECAR"; then OURS=1; fi
     for k in $OURS_SHAS; do if [[ "$k" == "$H" ]]; then OURS=1; fi; done
+    if [[ ! -f "$SIDECAR" && $OURS -eq 0 ]]; then
+        if [[ -f "${HOOKS_DIR}/style-digest.sh" || -n "$TOOLKIT_STYLES" ]]; then OURS=1; fi
+        if [[ -f "${MANAGED_DIR}/managed-settings.json" ]] && \
+           command -p grep -qE 'writing-style-policy|style-digest\.sh|style-emoji-check\.sh' "${MANAGED_DIR}/managed-settings.json"; then OURS=1; fi
+    fi
     if [[ $OURS -eq 0 ]]; then
-        if [[ ! -e "${CM}.pre-edgar-style-policy" ]]; then
-            cp -p "$CM" "${CM}.pre-edgar-style-policy"
-            echo "Kept the existing managed CLAUDE.md as CLAUDE.md.pre-edgar-style-policy (restored on uninstall)."
-        else
-            cp -p "$CM" "${CM}.bak.${STAMP}"
-            echo "Backed up the existing managed CLAUDE.md as CLAUDE.md.bak.${STAMP}."
+        # Keep the newest foreign file as the one the uninstaller restores.
+        if [[ -e "${CM}.pre-edgar-style-policy" ]]; then
+            mv -f "${CM}.pre-edgar-style-policy" "${CM}.pre-edgar-style-policy.bak.${STAMP}"
         fi
+        cp -p "$CM" "${CM}.pre-edgar-style-policy"
+        echo "Kept the existing managed CLAUDE.md as CLAUDE.md.pre-edgar-style-policy (restored on uninstall)."
     fi
 fi
 BODY1

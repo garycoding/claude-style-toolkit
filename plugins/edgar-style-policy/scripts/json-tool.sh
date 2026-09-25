@@ -145,7 +145,7 @@ def is_emoji(cp):
     if 0x1F000 <= cp <= 0x1FAFF or 0x1FC00 <= cp <= 0x1FFFD or 0xE0020 <= cp <= 0xE007F:
         return True
     return any(a <= cp <= b for a, b in EMOJI_BMP)
-RELEVANT = re.compile(r"\bgit\b(?:\s+-[cC]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+(?:commit|merge|tag)\b"
+RELEVANT = re.compile(r"\bgit\b(?:\s+-[cC]\s+(?:\"[^\"]*\"|\x27[^\x27]*\x27|\S+)|\s+--?[\w-]+(?:=\S+)?)*\s+(?:commit|merge|tag)\b"
                       r"|\bgh\s+(?:pr\s+(?:create|edit|comment|review|merge)|api)\b")
 FILEARG = re.compile(r"(?:^|\s)(?:-F|--file|--body-file|--input)(?:=|\s+)(\"[^\"]*\"|\x27[^\x27]*\x27|[^\s;&|]+)")
 if op == "validate":
@@ -207,7 +207,9 @@ elif op == "merge":
     hooks = out.get("hooks", {})
     purge(hooks)
     for ev, groups in frag.get("hooks", {}).items():
-        hooks.setdefault(ev, []).extend(groups)
+        if not isinstance(hooks.setdefault(ev, []), list):
+            print("hooks." + ev + " must be a JSON array", file=sys.stderr); sys.exit(1)
+        hooks[ev].extend(groups)
     if hooks:
         out["hooks"] = hooks
     else:
@@ -241,7 +243,7 @@ const EMOJI_BMP = [[0x231A,0x231B],[0x23E9,0x23EC],[0x23F0,0x23F0],[0x23F3,0x23F
     [0x20E3,0x20E3],[0xFE0F,0xFE0F]];
 const isEmoji = (cp) => (cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x1FC00 && cp <= 0x1FFFD)
     || (cp >= 0xE0020 && cp <= 0xE007F) || EMOJI_BMP.some(([a, b]) => cp >= a && cp <= b);
-const RELEVANT = /\bgit\b(?:\s+-[cC]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+(?:commit|merge|tag)\b|\bgh\s+(?:pr\s+(?:create|edit|comment|review|merge)|api)\b/;
+const RELEVANT = /\bgit\b(?:\s+-[cC]\s+(?:"[^"]*"|\x27[^\x27]*\x27|\S+)|\s+--?[\w-]+(?:=\S+)?)*\s+(?:commit|merge|tag)\b|\bgh\s+(?:pr\s+(?:create|edit|comment|review|merge)|api)\b/;
 const FILEARG = /(?:^|\s)(?:-F|--file|--body-file|--input)(?:=|\s+)("[^"]*"|\x27[^\x27]*\x27|[^\s;&|]+)/g;
 function transform(op, env, readFile) {
     const loadEnv = (name, dflt) => {
@@ -329,8 +331,11 @@ function transform(op, env, readFile) {
         else if (toolkitStyles().includes(out.outputStyle)) delete out.outputStyle;
         const hooks = out.hooks || {};
         purge(hooks);
-        for (const ev of Object.keys(frag.hooks || {}))
+        for (const ev of Object.keys(frag.hooks || {})) {
+            if (hooks[ev] !== undefined && !Array.isArray(hooks[ev]))
+                throw new Error("hooks." + ev + " must be a JSON array");
             hooks[ev] = (hooks[ev] || []).concat(frag.hooks[ev]);
+        }
         if (Object.keys(hooks).length) out.hooks = hooks; else delete out.hooks;
     } else if (op === "strip") {
         out = needSettingsObject(loadEnv("EXISTING", {}));

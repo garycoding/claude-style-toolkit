@@ -213,10 +213,16 @@ except the built-in Explore and Plan agents. Beside it, ask about:
   and asks the model to judge: replace an emoji that expresses or
   decorates; re-run unchanged when the emoji is itself the subject under
   discussion, and the rerun passes. It runs before anything is recorded,
-  so the user never sees an edited message.
+  so the user never sees an edited message. Wherever it is installed, also
+  set `attribution.pr` in `~/.claude/settings.json` (back the file up
+  first) to `Generated with [Claude Code](https://claude.com/claude-code)`:
+  Claude Code's default pull-request attribution line carries an emoji,
+  and without the setting every pull request Claude opens is refused once.
 
-Two older layers remain available but are not offered by default, and the
-user should hear why if they ask: `output-style` repeats the directive in
+Two older layers exist for styles made before the layer record; new styles
+do not use them (the review hook would need a `review-prompt.txt`, which
+only an older style's folder holds), and the user should hear why if they
+ask: `output-style` repeats the directive in
 the system prompt of the main session only (subagents never receive
 it), at the cost of the whole directive again on every request, and a
 custom output style drops Claude Code's software engineering instructions

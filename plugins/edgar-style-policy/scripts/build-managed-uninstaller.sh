@@ -81,6 +81,15 @@ CM="${MANAGED_DIR}/CLAUDE.md"
 SIDECAR="${MANAGED_DIR}/.edgar-style-policy"
 STAMP="$(date +%Y%m%d%H%M%S).$$"
 TOOLKIT_STYLES="$(toolkit_style_names "$STYLE_DIR")"
+# For an install that predates the sidecar record: the toolkit's other files
+# or settings entries mark the managed CLAUDE.md as its own. Read before the
+# surgery below removes them.
+LEGACY_OURS=0
+if [[ ! -f "$SIDECAR" ]]; then
+    if [[ -f "${HOOKS_DIR}/style-digest.sh" || -n "$TOOLKIT_STYLES" ]]; then LEGACY_OURS=1; fi
+    if [[ -f "${MANAGED_DIR}/managed-settings.json" ]] && \
+       command -p grep -qE 'writing-style-policy|style-digest\.sh|style-emoji-check\.sh' "${MANAGED_DIR}/managed-settings.json"; then LEGACY_OURS=1; fi
+fi
 
 ENGINE="$(detect_json_engine)"
 if [[ -z "$ENGINE" && -z "$PRECLEANED" ]]; then
@@ -129,6 +138,7 @@ if [[ -f "$CM" ]]; then
     OURS=0
     if [[ -f "$SIDECAR" ]] && command -p grep -qx "sha256=${H}" "$SIDECAR"; then OURS=1; fi
     for k in $OURS_SHAS; do if [[ "$k" == "$H" ]]; then OURS=1; fi; done
+    if [[ $OURS -eq 0 && $LEGACY_OURS -eq 1 ]]; then OURS=1; fi
     if [[ $OURS -eq 1 ]]; then
         rm -f "$CM"
     else
