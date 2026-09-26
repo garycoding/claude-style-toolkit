@@ -180,8 +180,9 @@ previous style's library folder is untouched, so switching back is another
    managed settings and CLAUDE.md are read at session start.
 
 A plugin update replaces the toolkit, not a deployed style. When a release
-changes what a style deploys, its notes say so, and a `style-maintain`
-redeploy brings the machine into line.
+changes what a style deploys, the pull request or commit that makes the
+release says so, and a `style-maintain` redeploy brings the machine into
+line.
 
 ## Uninstall
 
@@ -205,6 +206,22 @@ to a layer record, merge idempotence, the settings strip, the emoji scan
 on a table of cases, the commit check's single refusal, and full user-tier
 and managed-tier round trips that must restore the original settings and
 a foreign managed `CLAUDE.md`.
+
+## Releasing
+
+A release is a change to the plugin that raises its version. The version has one source, `"version"` in `plugins/edgar-style-policy/.claude-plugin/plugin.json`; the marketplace manifest carries none. Installed copies update when that version changes, through `self-update` or the marketplace's automatic updates, so every change to the plugin that is meant to reach them raises it, and the pull request or commit that raises it says what the release changes.
+
+Every release is tagged `v<version>`, with an annotated tag whose message is `Release v<version>`, on the commit at which that version first reaches `main`: the merge commit when the change arrives by pull request, the commit itself when it is committed directly. The version is read from `plugin.json` at that commit, never typed:
+
+```bash
+git fetch origin
+c=<the commit on main that brought the new version>
+v=$(git show "$c:plugins/edgar-style-policy/.claude-plugin/plugin.json" | jq -r .version)
+git tag -a "v$v" -m "Release v$v" "$c"
+git push origin "v$v"
+```
+
+A tag is not moved once pushed; a mistake is corrected by the next release. No GitHub Release is published: the tags mark the history, and users receive a release through the marketplace. Releases 0.1.0 to 0.4.1 were tagged afterwards, on 26 September 2026, by the same rule; `v0.1.0` is on the initial commit, where the plugin was still named `style-policy`.
 
 ## License
 
