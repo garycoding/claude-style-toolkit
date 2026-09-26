@@ -1,0 +1,15 @@
+{
+  "theme": "dark",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "foreign-stop.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

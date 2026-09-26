@@ -1,10 +1,19 @@
 {
   "name": "edgar-style-policy",
-  "description": "Author, deploy, maintain, switch, and remove edgar writing-style directives as layered Claude Code policy: guided authoring (interview or exemplar-derived), contradiction and fresh-eyes review, digest generation, user-tier or managed-tier installation, a named local library with by-name switching, troubleshooting, uninstall, and in-place plugin self-update.",
-  "version": "0.4.1",
+  "description": "Author, deploy, maintain, switch, and remove edgar writing-style directives as layered Claude Code policy: guided authoring (interview or exemplar-derived), contradiction and fresh-eyes review, a per-turn digest, a layer record per style, an optional commit and pull-request emoji check, on-request review of a draft, user-tier or managed-tier installation, a named local library with by-name switching, troubleshooting, uninstall, and automatic plugin updates.",
+  "version": "0.5.0",
   "author": {
     "name": "garycoding"
   },
   "license": "MIT OR Apache-2.0",
-  "keywords": ["writing-style", "style-guide", "policy", "CLAUDE.md", "output-style", "style-library", "style-switch", "self-update"]
+  "keywords": [
+    "writing-style",
+    "style-guide",
+    "policy",
+    "CLAUDE.md",
+    "style-library",
+    "style-switch",
+    "style-review",
+    "auto-update"
+  ]
 }

@@ -1,60 +1,58 @@
 ---
 name: self-update
-description: Update the edgar-style-policy plugin itself to the newest version its marketplace offers, from inside Claude Code. Use when the user wants to update, upgrade, or get the latest version of this plugin, the edgar style toolkit, or its skills. This is about the plugin software, not a writing style; to change or edit a style use style-maintain. It refreshes the marketplace, updates the plugin in place, and leaves the user the single step needed to apply it.
+description: Turn on automatic updates of the edgar-style-policy plugin from its marketplace, and bring the plugin up to date now, from inside Claude Code. Use when the user wants to update, upgrade, or keep the edgar style toolkit or its skills current. This is about the plugin software, not a writing style; to change or edit a style use style-maintain.
 ---
 
 # Plugin self-update
 
-You update the `edgar-style-policy` plugin in place to the newest version
-its marketplace offers, so the user never has to drop to a shell or recall
-the refresh-uninstall-reinstall sequence. This exists because `/plugin
-install` does not upgrade an already-installed plugin (it reports "already
-installed" and stops), and the interactive `/plugin` manager has no update
-affordance.
-
-You run the plugin-management commands on the user's behalf; from the
-user's seat the whole operation is one skill invocation. The single thing
-you cannot do is reload the session, so applying the update is the user's
-closing `/reload-plugins` (or a restart).
+You make the `edgar-style-policy` plugin keep itself current. Claude Code
+can update a plugin automatically from its marketplace, but for a
+third-party marketplace such as this one automatic update is off until it
+is turned on. Turning it on is one settings key; this skill sets it, so the
+user never edits a settings file, and brings the plugin up to date once now.
 
 ## Identifiers
 
 The plugin is `edgar-style-policy`; its marketplace is
 `claude-style-toolkit`; qualified, `edgar-style-policy@claude-style-toolkit`.
-These are fixed and do not depend on how the user added the marketplace.
 
-## Phase 1 — Check for a newer version
+## Phase 1 — Turn on automatic update
 
-1. Refresh the marketplace metadata (it is a git clone and must pull the
-   latest commit before a newer version is visible):
-   `claude plugin marketplace update claude-style-toolkit`. If this fails
-   (the machine is offline, or the git remote cannot be reached), report
-   the error and stop; change nothing.
-2. Read the installed version from `claude plugin list` (the `Version:`
-   line under `edgar-style-policy@claude-style-toolkit`) and the latest
-   available version from the refreshed marketplace clone's manifest,
-   `~/.claude/plugins/marketplaces/claude-style-toolkit/plugins/edgar-style-policy/.claude-plugin/plugin.json`
-   (the `version` field).
-3. If the two are equal, report that the plugin is already on the latest
-   version (name it) and stop; there is nothing to update.
+Automatic update follows, first, `autoUpdate` on the marketplace's entry
+under `extraKnownMarketplaces` in a settings file. Read
+`~/.claude/settings.json`. If `extraKnownMarketplaces.claude-style-toolkit`
+exists and `autoUpdate` is already `true`, report that and go to Phase 2.
+Otherwise set `extraKnownMarketplaces.claude-style-toolkit.autoUpdate` to
+`true`, keeping its `source` and every other key of the file unchanged; if
+the marketplace has no entry there yet, add one with the source it was
+added from (`{"source": "github", "repo": "garycoding/claude-style-toolkit"}`
+for the public repository). Back the file up first
+(`settings.json.bak.<timestamp>`), and check that the result parses as JSON
+before writing it. The in-session equivalent, for a user who prefers it, is
+`/plugin`, the Marketplaces tab, Enable auto-update, which writes the same key.
 
-## Phase 2 — Update in place
+From then on Claude Code refreshes the marketplace in the background during
+each session and installs a newer version on disk; the running session
+keeps the version it loaded, and the next session, or `/reload-plugins`,
+uses the new one.
 
-If a newer version is available, run
-`claude plugin update edgar-style-policy@claude-style-toolkit` (fall back to
-the unqualified `edgar-style-policy` if the marketplace-qualified form is
-rejected). Report the before and after versions plainly, and name any
-notable new skill the update brings.
+## Phase 2 — Update now
 
-You are updating the very plugin this skill belongs to, which is safe: this
-skill's instructions are already loaded for the current run, so the swap of
-files on disk does not interrupt it. The new files, including any changed
-version of this skill, take effect only after the reload below, so do not
-expect changed behavior until then.
+Refresh the marketplace (`claude plugin marketplace update
+claude-style-toolkit`) and compare the installed version (`claude plugin
+list`, the `Version:` line under the plugin) with the marketplace's
+(`~/.claude/plugins/marketplaces/claude-style-toolkit/plugins/edgar-style-policy/.claude-plugin/plugin.json`).
+If they differ, run `claude plugin update
+edgar-style-policy@claude-style-toolkit`. If the refresh fails (offline, or
+the remote unreachable), report the error; automatic update is still on and
+will catch up later.
 
-## Phase 3 — Apply
+## Phase 3 — Apply, and what an update does not do
 
-Tell the user the one step you cannot take for them: run `/reload-plugins`
-to activate the new version in this session, or fully quit and restart
-Claude Code. Until they do, the previous version stays active. Close by
-naming the version they will be on and what it adds.
+Tell the user the one step you cannot take: run `/reload-plugins`, or start
+a new session, to load the new version. Then say plainly what an update
+leaves alone: the plugin's files are replaced, but a deployed style (the
+directive, the digest hook, the emoji check, the settings entries) is a
+copy made at install time and does not change by itself. When a release
+changes what a style deploys, the release notes say so, and a
+`style-maintain` redeploy brings the machine into line.

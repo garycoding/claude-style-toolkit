@@ -59,7 +59,8 @@ by asking Claude, once.
 2. Fully quit Claude for Mac (Cmd+Q) and open it again.
 3. Confirm it worked: in a new Cowork chat, type `/edgar-style-policy:` and
    you should see the toolkit's commands offered (`style-author`,
-   `style-switch`, `style-maintain`, `style-uninstall`, `self-update`). If
+   `style-switch`, `style-maintain`, `style-review`, `style-uninstall`,
+   `self-update`). If
    you prefer, ask Claude "Is the edgar-style-policy plugin installed, and
    which version?"
 
@@ -134,20 +135,31 @@ as you like.
 
 ## 5. Update the plugin
 
-When a new version of the toolkit is published, the `self-update` skill
-brings you to it. This exists because the ordinary install command does not
-upgrade a plugin that is already installed; `self-update` does the whole
-thing for you.
+Run the `self-update` skill once and the toolkit keeps itself current from
+then on: it turns on automatic updates for the toolkit's catalog and brings
+the plugin up to date now.
 
 1. In a Cowork chat, type `/edgar-style-policy:self-update`.
-2. Claude refreshes the catalog, checks your installed version against the
-   latest, and, if a newer one exists, updates it for you and tells you the
-   new version and what it adds. No password is needed.
+2. Claude turns on automatic updates, checks your installed version against
+   the latest, and, if a newer one exists, updates it and tells you the new
+   version and what it adds. No password is needed.
 3. Fully quit Claude for Mac (Cmd+Q) and open it again to load the new
    version.
 
-If Claude reports you are already on the latest version, there is nothing
-to do.
+After that, new versions arrive by themselves and take effect the next time
+you open the app. An update replaces the toolkit, not your deployed style;
+when a new version changes what a style installs, its notes say so, and
+`/edgar-style-policy:style-maintain` brings your style up to date.
+
+## 5a. Have a draft reviewed against your style
+
+Before something leaves your hands (a press release, a letter, a post),
+you can ask Claude to check it against your active style.
+
+1. In a Cowork chat, type `/edgar-style-policy:style-review` and say which
+   draft: paste it, name the file, or say "your last reply".
+2. Claude lists each place the draft departs from your style, with the rule
+   and a suggested rewrite, and asks which rewrites to apply.
 
 ## 6. Remove a style, or remove the plugin
 

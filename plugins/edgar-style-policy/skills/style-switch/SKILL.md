@@ -21,28 +21,37 @@ Authored styles live one folder per style under
 - `canonical.md` — the directive, and the single source of truth for that
   style.
 - `digest.sh` — the ready-to-install digest hook.
-- `review-prompt.txt` — the judgment-review prompt, `[writing-style-policy]`
-  marker first.
+- `layers` — the layer record: one `<layer>=on` line for each layer the
+  style deploys besides its directive (`digest`, `commit-emoji-check`,
+  and, for older styles, `output-style`, `output-style-coding`,
+  `stop-review`). A folder without it predates the record and keeps the
+  original four layers (directive, output style, digest, review hook).
+- `review-prompt.txt` — only for a style whose record turns `stop-review`
+  on (older styles); the `[writing-style-policy]` marker first.
 - `VERIFIED.md` — display name, slug, tier last deployed, digest text,
-  review prompt, and test scenarios.
+  and test scenarios.
 
-The three deployable files are exactly what the installers expect in a
-staging directory, so a style's library folder IS its staging directory,
-and a switch simply points the installer at it. The ACTIVE style is not
-recorded separately — it is whichever style the live `outputStyle` names.
+These files are exactly what the installers expect in a staging directory,
+so a style's library folder IS its staging directory, and a switch simply
+points the installer at it. The ACTIVE style is not recorded separately:
+it is the library style whose `canonical.md` matches the deployed
+directive (the managed `CLAUDE.md`, or `~/.claude/writing-style.md` at the
+user tier), compared after normalising trailing blank lines. `outputStyle`
+cannot serve, since the output-style layer is optional.
 
 ## Phase 1 — List
 
 Enumerate `~/.claude/edgar-style-policies/*/` (folders that contain a
 `canonical.md`). For each, read the display name and the recorded tier
-from `VERIFIED.md`. Read the installed tier's live `outputStyle` (from
-`~/.claude/settings.json`, or the world-readable `managed-settings.json` on
-the managed tier) and mark ACTIVE the style whose `VERIFIED.md` display
-name matches it. Present the library plainly: name, slug, and which is
-active on which tier.
+from `VERIFIED.md`, and its layers from `layers` (or "original four" when
+absent). Read the deployed directive of the installed tier (the managed
+`CLAUDE.md` is world-readable) and mark ACTIVE the style whose
+`canonical.md` matches it. Present the library plainly: name, slug,
+layers, and which is active on which tier.
 
-Flag two conditions rather than hiding them: a folder missing any of the
-three deployable files is incomplete and cannot be switched to until it is
+Flag two conditions rather than hiding them: a folder missing a file its
+layers need (`canonical.md` always, `digest.sh` for the digest,
+`review-prompt.txt` for the review hook) is incomplete and cannot be switched to until it is
 re-authored (`style-author`) or repaired (`style-maintain`); two folders
 whose names resolve to the same slug are a collision the user must
 rename out of, since the slug keys the deployed filenames.
@@ -66,30 +75,29 @@ Given a target name or slug:
    - *User tier (no sudo)*: run
      `${CLAUDE_PLUGIN_ROOT}/scripts/install-user.sh
      ~/.claude/edgar-style-policies/<slug> "<Display Name>"`. It overwrites
-     the single deployed directive copy, writes the target output style and
-     repoints `outputStyle`, overwrites the digest hook, and merges the
-     review hook into `~/.claude/settings.json` (backup first; other
-     settings preserved). Fully automatic.
+     the single deployed directive copy and brings the hooks, the output
+     style and `~/.claude/settings.json` exactly into line with the
+     target's layer record (backup first; other settings preserved), so a
+     layer the previous style had and the target lacks is removed. Fully
+     automatic.
    - *Managed tier (one sudo)*: run
      `${CLAUDE_PLUGIN_ROOT}/scripts/build-managed-installer.sh
      ~/.claude/edgar-style-policies/<slug> "<Display Name>"` to assemble
      `~/install_claude_writing_style.sh`, then have the user run, in a
-     terminal, `sudo ~/install_claude_writing_style.sh`. It merges
-     `managed-settings.json` (backup first; other managed settings
-     preserved), root-owns the tree, and deletes itself on success.
-4. **Note the harmless leftovers.** The previously active style's
-   output-style file (`output-styles/<old-slug>.md`) stays on disk but is
-   inert, because `outputStyle` selects by display name; the previous
-   style's library folder is untouched, so switching back later is just
-   another Phase 2. Offer to prune stale output-style files only if the
-   user wants the tidiness; correctness does not require it.
+     terminal, `sudo ~/install_claude_writing_style.sh`. It brings the
+     managed tier into line with the target's layer record (backup first;
+     other managed settings preserved), root-owns the tree, and deletes
+     itself on success.
+4. **Note what is left.** The installers remove every output-style file the
+   toolkit generated before writing the target's (if its record has that
+   layer), so no stale style stays selectable. The previous style's library
+   folder is untouched, so switching back later is just another Phase 2.
 5. **Restart and verify.** Have the user fully quit and restart Claude
-   Code — a `/clear` does not reload the output style or managed settings.
-   Then run `style-maintain` Phase 3: confirm the target directive and
-   output style are active, the digest line arrives, and the marker-tagged
-   review hook in the tier's settings now carries the target's prompt. The
-   review prompt was sandbox-tested when the style was authored, so no live
-   violation test is needed unless it has since changed.
+   Code — a `/clear` does not reload the directive or managed settings.
+   Then run `style-maintain` Phase 3: confirm the target directive is in
+   context and each layer in its record is live (the digest line arrives;
+   the emoji check is registered; for an older style, the output style and
+   the marker-tagged review hook).
 
 Because a managed switch costs one `sudo` each time, tell a user who
 switches often that the user tier is the ergonomic home for a switching
@@ -100,12 +108,12 @@ changes.
 
 - A switch is not transactional: the installer backs up settings and
   writes each layer, but an interruption mid-run can leave the directive
-  swapped while `outputStyle` still names the previous style. Recovery is
-  re-running the same idempotent installer; the four layers are consistent
-  once it completes, and the post-restart verification catches a partial
-  apply.
+  swapped while the settings still carry the previous style's entries.
+  Recovery is re-running the same idempotent installer; the layers are
+  consistent once it completes, and the post-restart verification catches
+  a partial apply.
 - Never hand-edit a deployed copy to "switch" — always redeploy from the
-  library folder, so all four layers move together.
+  library folder, so all its layers move together.
 - Switching removes no style. To take a style off the machine use
   `style-uninstall` (it strips only the active deployment; the library
   folders persist). To edit a stored style use `style-maintain`, which

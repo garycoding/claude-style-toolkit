@@ -7,82 +7,87 @@ SPDX-License-Identifier: MIT OR Apache-2.0
 # claude-style-toolkit
 
 A Claude Code plugin marketplace for edgar writing-style policy. The plugin,
-`edgar-style-policy`, bundles five skills:
+`edgar-style-policy`, bundles six skills:
 
 - **style-author** — guides you through creating an edgar writing-style
   directive Claude will actually follow: intake by interview or by
   mining your existing documents for the voice they embody, drafting on
   the rule/test/example-pair template, a contradiction pass, an
-  independent fresh-eyes review, generation of the per-prompt digest and
-  the judgment-review prompt, and deployment.
+  independent fresh-eyes review, generation of the per-prompt digest,
+  the choice of layers, and deployment.
+- **style-review** — on request, reviews a draft that is about to leave
+  the machine (a pull-request description, a document, a letter) against
+  the active directive, and reports every departure with its location
+  and a rewrite.
 - **style-switch** — keeps a local library of the styles you author and
   switches the active one by name, re-deploying the chosen style through
   the same installers (user tier automatic, managed tier one sudo),
   effective after a restart.
 - **style-maintain** — audits an installed policy (drift between
-  canonical and deployed copies, condensation staleness, ownership,
-  live-layer checks), troubleshoots why a style is not being followed,
-  checks for Claude Code platform drift, reworks the directive from new
-  example documents and observed unwanted behaviors, redeploys, and
-  migrates between tiers.
+  canonical and deployed copies, digest staleness, ownership, whether the
+  settings match the style's layer record), troubleshoots why a style is
+  not being followed, checks for Claude Code platform drift, reworks the
+  directive from new example documents and observed unwanted behaviors,
+  moves older styles to the current layer set, redeploys, and migrates
+  between tiers.
 - **style-uninstall** — removes a deployed policy (surgically, leaving
-  any other settings and the canonical directive untouched); writes a
+  any other settings and the style library untouched); writes a
   self-contained sudo uninstaller for the managed tier.
-- **self-update** — updates the plugin itself to the newest version its
-  marketplace offers, from inside Claude Code: it refreshes the
-  marketplace, updates the plugin in place, and leaves you a single
-  `/reload-plugins` to apply it (since `/plugin install` will not upgrade
-  an already-installed plugin).
+- **self-update** — turns on automatic updates of the plugin from its
+  marketplace and brings it up to date now, so a new version arrives by
+  itself from then on.
 
-The method and the deployment architecture come from a worked reference
-implementation: [claude-style-policy](https://github.com/garycoding/claude-style-policy),
-which documents the four-layer design and why it holds up in long
-sessions. The full architecture — the layer model, the JSON engine
-ladder, the build-time/run-time division at the sudo boundary, the
-process walkthroughs, and the invariants — is documented in
-[docs/architecture.md](docs/architecture.md).
+The architecture — the layers and the layer record, the JSON engine
+ladder, the build-time/run-time division at the sudo boundary, the process
+walkthroughs, and the invariants — is documented in
+[docs/architecture.md](docs/architecture.md). The toolkit's predecessor,
+the private `claude-style-policy` repository of July 2026, is archived.
 
-## Why four layers
+## The layers
 
-Instruction adherence erodes in long sessions as the directive's share of
-context shrinks and task-local pressure grows. Each layer covers a
-different failure mode:
+Each style carries a layer record (a `layers` file in its library folder)
+that says what is deployed besides the directive itself:
 
-| Layer | Artifact | Seat | Failure mode it covers |
-|---|---|---|---|
-| 1 | Managed or user CLAUDE.md | Primacy; re-injected from disk at every compaction | Baseline presence; survives compaction untouched |
-| 2 | Output style | End of the system prompt; unconditionally persistent | Attention dilution — the system prompt is the highest-weight placement |
-| 3 | `UserPromptSubmit` hook | Recency — a ~70-token digest injected with every prompt | Long gaps between compactions where layers 1–2 sit far from the point of generation |
-| 4 | `Stop` judgment-review hook | End of every turn — a small model reviews the reply against the rules | Drift past the soft layers, enforced with intent: it distinguishes *using* a banned element from *mentioning* it |
+| Layer | Artifact | What it does |
+|---|---|---|
+| directive (always) | Managed `CLAUDE.md`, or `~/.claude/writing-style.md` imported from `~/.claude/CLAUDE.md` | The full rules in every session's context, the main session and subagents alike (except the built-in Explore and Plan agents); re-read at compaction |
+| `digest` | `UserPromptSubmit` command hook | A short restatement of the rules most often broken, injected with every prompt, so they stay close to the point of writing in a long session |
+| `commit-emoji-check` | `PreToolUse` command hook on Bash | For a style that bars emoji as a means of expression: refuses once a git commit, tag or merge, or a gh pull-request command, whose message contains an emoji, and asks the model to judge; the unchanged rerun passes. Set `attribution.pr` beside it, since Claude Code's default pull-request attribution line carries an emoji |
 
-Layer 4 is deliberately judgment-based, not a string-matching lint. A
-regex cannot tell a decorative emoji from a quoted example, or a banned
-phrase used as hype from the same phrase under discussion; a reviewing
-model can, and its review prompt encodes exemptions before violations in
-a fixed order. The trade is explicit: judgment can occasionally misjudge
-where a regex never wavers, and it costs one small-model call per turn —
-accepted, because the failure mode of determinism (confidently wrong
-blocks on legitimate replies) is the worse one for a writing tool.
+Two older layers remain for styles made before the record existed, and are
+no longer offered by default. `output-style` repeated the whole directive
+in the main session's system prompt; it never reached subagents, cost the
+whole directive again on every request, and, without
+`keep-coding-instructions`, removed Claude Code's software engineering
+instructions from the session. `stop-review` had a small model judge every
+reply against the rules; it ran after the reply was displayed, so each
+block showed an edited reply beneath the original, and in use it blocked
+on grounds its own prompt excluded. `style-maintain` offers to move an
+older style to the current set.
 
-## Design rationale: one source, several seats
+## Design rationale
+
+**Judgment for meaning, mechanism for form.** Whether a word is used or
+quoted, figurative or literal, expressive or under discussion, is a
+judgement. The toolkit leaves that judgement to the session's own model:
+while it writes, from the directive in context, and on request with
+`style-review` for a draft that will leave the machine. Mechanism is used
+only for facts a script can establish exactly, such as whether a commit
+message contains an emoji; even there the script only asks, and the model
+judges.
 
 **Single source of truth governs authoring, not deployment.** The only
-editable copy of the directive is the user's canonical file. Every
-deployed artifact is generated from it and never hand-edited. Two
-generated copies cannot drift from each other; SSoT is violated only
-when copies can be edited independently.
+editable copy of the directive is the canonical file in the style's
+library folder. Every deployed artifact is generated from it and never
+hand-edited.
 
-**Two condensations are hand-maintained and can drift semantically**:
-the per-prompt digest and the judgment-review prompt. Both must be
-reviewed against the directive on every canonical edit — step 1 of the
-redeploy flow in `style-maintain`, and the skills say so at generation
-time. Mechanical summarization would trade that visible drift risk for
-an unreviewed machine condensation; the review step is the mitigation.
+**One condensation is hand-maintained and can drift semantically**: the
+per-prompt digest. It must be reviewed against the directive on every
+canonical edit — step 1 of the redeploy flow in `style-maintain`.
 
-**The two directive seats fail independently.** If output styles churn
-upstream, the CLAUDE.md tier stands; if long-context pressure erodes the
-user-tier message, the output style stands in the system prompt.
-Carrying both costs about 1.2k tokens twice per context.
+**A redeploy never restores a dropped layer.** The installers bring the
+tier exactly into line with the style's layer record, removing any
+toolkit entry the record lacks.
 
 **Root ownership (managed tier) is the enforcement mechanism** for the
 policy files themselves: nothing running as the user — including
@@ -97,11 +102,15 @@ Claude's own memory feature — can rewrite them without elevation.
 
 The repo is public; no authentication setup is needed. (A local clone
 also works: `/plugin marketplace add /path/to/claude-style-toolkit`.)
+Then run `/edgar-style-policy:self-update` once to turn on automatic
+updates; for a third-party marketplace such as this one they are off by
+default.
 
-Then invoke the skills as:
+Invoke the skills as:
 
 ```
 /edgar-style-policy:style-author
+/edgar-style-policy:style-review
 /edgar-style-policy:style-switch
 /edgar-style-policy:style-maintain
 /edgar-style-policy:style-uninstall
@@ -117,56 +126,62 @@ The author skill asks which tier you want:
   to `~/.claude` can alter it.
 - **Managed tier (sudo)** — root-owned files at the OS managed path. The
   skill assembles one self-contained installer at
-  `~/install_claude_writing_style.sh` (directive, digest, and settings
-  fragment embedded, so you can read the sudo script before running it)
-  and prints the single command for you to run yourself, since the
-  harness cannot enter passwords. The installer merges into any existing
+  `~/install_claude_writing_style.sh` (every file of the style's layers
+  embedded, so you can read the sudo script before running it) and prints
+  the single command for you to run yourself, since the harness cannot
+  enter passwords. The installer keeps an existing managed `CLAUDE.md`
+  that is not the toolkit's own as `CLAUDE.md.pre-edgar-style-policy`
+  (restored on uninstall) and merges into any existing
   managed-settings.json using whichever JSON engine the machine has —
-  python3, osascript (macOS), or node, identically on both OSes; with no
-  engine at all, it writes the merge the guiding model performed and
-  validated at build time, and the lossy backup-and-replace path remains
-  only as the last resort, announced when taken. It deletes itself on
-  success.
+  python3, osascript (macOS), or node; with no engine at all, it writes
+  the merge the guiding model performed and validated at build time, and
+  the lossy backup-and-replace path remains only as the last resort,
+  announced when taken. It deletes itself on success.
 
-Either tier governs local CLI sessions and the desktop app's Code and
-Cowork tabs. Plain desktop chat, web, and mobile are not reached by
-files on a machine; the chat side takes the directive only via the
-account-level "Instructions for Claude" profile field, by hand.
+Both tiers govern local CLI sessions and the desktop app's Code tab. The
+managed tier also reaches the desktop app's Cowork tab (verified on
+macOS). Cowork does not read `~/.claude`, so the user tier is not expected
+to reach it; this is being verified on a user-tier machine. Plain desktop
+chat, web, and mobile are not reached by files on a machine; the chat side
+takes the directive only via the account-level "Instructions for Claude"
+profile field, by hand.
 
-**Second machine / reinstall:** install the plugin, copy your canonical
-directive (and `VERIFIED.md`, which records the style name, digest text,
-and scenarios), invoke `style-author`, and say the directive is finished
-— it skips straight to digest/deploy. Install-time JSON work uses
-whichever engine the machine has (python3, osascript, or node); nothing
-at runtime depends on any of them.
+**Second machine / reinstall:** install the plugin, copy the style's
+library folder (`~/.claude/edgar-style-policies/<slug>/`, which holds the
+canonical directive, the layer record and `VERIFIED.md`), invoke
+`style-author`, and say the directive is finished — it skips straight to
+deployment.
 
 ## Style library and switching
 
 Every style `style-author` creates is stored as a deployable bundle in its
 own folder under `~/.claude/edgar-style-policies/<slug>/` (`canonical.md`,
-`digest.sh`, `review-prompt.txt`, `VERIFIED.md`). The `style-switch` skill
-lists that library and re-activates any stored style by name.
+`layers`, `digest.sh`, `VERIFIED.md`). The `style-switch` skill lists that
+library and re-activates any stored style by name.
 
 Switching is not on-the-fly. It re-deploys the chosen style through the
 same installers, so it takes effect only after a full restart, and the
 managed tier still costs one sudo per switch — which makes the user tier
 the ergonomic home for a workflow that switches often. Only one style is
-active at a time: the one the live `outputStyle` names. The switch repoints
-all four layers together; the previous style's output-style file is left on
-disk but inert, and its library folder is untouched, so switching back is
-another `style-switch`. Invoke it as `/edgar-style-policy:style-switch`.
+active at a time: the one whose canonical matches the deployed directive.
+The switch brings every layer into line with the target's record, and the
+previous style's library folder is untouched, so switching back is another
+`style-switch`. Invoke it as `/edgar-style-policy:style-switch`.
 
 ## Update workflow
 
-1. Edit the canonical directive. Never edit deployed copies — they are
-   generated, and the managed tier is root-owned precisely so they
-   cannot drift.
-2. Review both condensations against the edit: the digest in the staged
-   `digest.sh` and the judgment-review prompt. This is the step that
-   keeps the two drift-capable artifacts honest.
+1. Edit the canonical directive in the style's library folder. Never edit
+   deployed copies — they are generated, and the managed tier is
+   root-owned precisely so they cannot drift.
+2. Review the digest against the edit. This is the step that keeps the
+   one drift-capable artifact honest.
 3. Redeploy via `style-maintain` (it stages, reinstalls the correct
    tier, and re-verifies), then fully quit and restart Claude Code — the
-   output style and managed settings are fixed at session start.
+   managed settings and CLAUDE.md are read at session start.
+
+A plugin update replaces the toolkit, not a deployed style. When a release
+changes what a style deploys, its notes say so, and a `style-maintain`
+redeploy brings the machine into line.
 
 ## Uninstall
 
@@ -174,11 +189,22 @@ Use the `style-uninstall` skill. User tier: automatic, no sudo. Managed
 tier: it writes `~/uninstall_claude_writing_style.sh` for you to run
 with sudo; the uninstaller strips only the policy's own files and
 settings entries (other managed settings are preserved), removes the
-managed directory only if it is left empty, and deletes itself. The
-canonical directive in your repo is never touched. If a different
-output style was selected before the policy was installed, that
-selection is not restored automatically — it survives in the
-pre-install settings backup.
+managed `CLAUDE.md` only when it is the toolkit's own and restores one it
+kept aside, removes the managed directory only if it is left empty, and
+deletes itself. The style library is never touched. If a different output
+style was selected before an older style's installation, that selection
+is not restored automatically — it survives in the pre-install settings
+backup.
+
+## Tests
+
+`tests/run-tests.sh` runs the scripts in a scratch directory, touching
+neither `~/.claude` nor the managed directory, on every JSON engine
+available (python3, osascript, node): the migration from the older layers
+to a layer record, merge idempotence, the settings strip, the emoji scan
+on a table of cases, the commit check's single refusal, and full user-tier
+and managed-tier round trips that must restore the original settings and
+a foreign managed `CLAUDE.md`.
 
 ## License
 
@@ -200,9 +226,10 @@ above, without any additional terms or conditions.
 
 The license covers the toolkit only. A writing-style directive you
 produce with the `style-author` skill is your own work and carries no
-license — the skill never tags it, and everything it deploys into your
-environment (the directive copies, the digest hook, the review prompt)
-is header-free private configuration.
+license — the skill never tags it, and the copies deployed from it (the
+directive, the digest hook) are header-free private configuration. The
+toolkit's own scripts that the installers deploy beside them
+(`style-emoji-check.sh`, `style-json-tool.sh`) keep their headers.
 
 This repository is [REUSE](https://reuse.software/)-compliant; verify
 with `uvx --from "reuse[charset-normalizer]" reuse lint`.
@@ -217,15 +244,20 @@ plugins/edgar-style-policy/
 │   ├── style-author/
 │   │   ├── SKILL.md
 │   │   └── resources/           directive template, review lenses,
-│   │                            review-prompt template
+│   │                            review-prompt template (older styles)
+│   ├── style-review/SKILL.md
 │   ├── style-switch/SKILL.md
 │   ├── style-maintain/SKILL.md
 │   ├── style-uninstall/SKILL.md
 │   └── self-update/SKILL.md
-└── scripts/                     json-tool.sh (shared JSON engine ladder),
-                                 install-user.sh, uninstall-user.sh (no sudo),
-                                 build-managed-installer.sh,
+└── scripts/                     json-tool.sh (shared JSON engine ladder and
+                                 helpers), install-user.sh, uninstall-user.sh
+                                 (no sudo), build-managed-installer.sh,
                                  build-managed-uninstaller.sh (emit the
                                  self-contained sudo scripts),
-                                 style-digest-template.sh
+                                 style-digest-template.sh,
+                                 style-emoji-check.sh (the commit check)
+tests/                           run-tests.sh and synthetic fixtures
+docs/                            architecture.md, in-flight_ideas.md,
+                                 the Cowork user guide (MD and HTML)
 ```
