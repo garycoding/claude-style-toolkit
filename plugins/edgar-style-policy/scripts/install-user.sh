@@ -125,6 +125,8 @@ fi
 # The commit emoji check was retired in 0.6.0; remove what an earlier release
 # deployed (the settings entry is removed by the merge below).
 rm -f "${HOOKS_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-json-tool.sh"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/edgar-style-policy"
+rm -f "${STATE_DIR}/emoji-seen"; rmdir "$STATE_DIR" 2>/dev/null || true
 
 # Settings: write the pre-computed merge (backup first).
 if [[ -f "$SETTINGS" ]]; then
