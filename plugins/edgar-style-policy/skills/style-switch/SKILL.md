@@ -22,10 +22,10 @@ Authored styles live one folder per style under
   style.
 - `digest.sh` — the ready-to-install digest hook.
 - `layers` — the layer record: one `<layer>=on` line for each layer the
-  style deploys besides its directive (`digest`, `commit-emoji-check`,
+  style deploys besides its directive (`digest`,
   and, for older styles, `output-style`, `output-style-coding`,
-  `stop-review`). A folder without it predates the record and keeps the
-  original four layers (directive, output style, digest, review hook).
+  `stop-review`). A folder without it deploys the directive and the
+  digest; the older layers are deployed only when a record names them.
 - `review-prompt.txt` — only for a style whose record turns `stop-review`
   on (older styles); the `[writing-style-policy]` marker first.
 - `VERIFIED.md` — display name, slug, tier last deployed, digest text,
@@ -43,7 +43,7 @@ cannot serve, since the output-style layer is optional.
 
 Enumerate `~/.claude/edgar-style-policies/*/` (folders that contain a
 `canonical.md`). For each, read the display name and the recorded tier
-from `VERIFIED.md`, and its layers from `layers` (or "original four" when
+from `VERIFIED.md`, and its layers from `layers` (or "directive and digest" when
 absent). Read the deployed directive of the installed tier (the managed
 `CLAUDE.md` is world-readable) and mark ACTIVE the style whose
 `canonical.md` matches it. Present the library plainly: name, slug,
@@ -95,9 +95,8 @@ Given a target name or slug:
 5. **Restart and verify.** Have the user fully quit and restart Claude
    Code — a `/clear` does not reload the directive or managed settings.
    Then run `style-maintain` Phase 3: confirm the target directive is in
-   context and each layer in its record is live (the digest line arrives;
-   the emoji check is registered; for an older style, the output style and
-   the marker-tagged review hook).
+   context and each layer in its record is live (the digest line arrives; for an
+   older style, the output style and the marker-tagged review hook).
 
 Because a managed switch costs one `sudo` each time, tell a user who
 switches often that the user tier is the ergonomic home for a switching

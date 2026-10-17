@@ -21,35 +21,16 @@ The record is a file named `layers` in the style's library folder, one
 |---|---|---|---|
 | directive | CLAUDE.md (managed or user tier) | A user message after the system prompt, in the main session and in every subagent except the built-in Explore and Plan agents; re-read at compaction | The rules, in full |
 | `digest` | `UserPromptSubmit` command hook | With every prompt | Distance from the point of writing in a long session |
-| `commit-emoji-check` | `PreToolUse` command hook, matcher Bash | Before a git or gh command runs | Emoji in a commit message or pull-request text, for a style that bars them as a means of expression |
 | `output-style` (older) | Output-style file and `outputStyle` | The main session's system prompt only | Superseded; see below |
 | `output-style-coding` (older) | `keep-coding-instructions: true` in that file | — | Keeps Claude Code's software engineering instructions beside an output style |
 | `stop-review` (older) | `Stop` prompt hook | After every reply | Superseded; see below |
+| `commit-emoji-check` (retired in 0.6.0) | `PreToolUse` command hook, matcher Bash | Before a git or gh command ran | Retired; see below |
 
-A folder without a record predates it and deploys the original four
-layers (directive, output style, digest, review hook), so older styles keep
-working unchanged until `style-maintain` moves them.
+A folder without a record predates it and deploys the directive and the digest. The two oldest layers are deployed only when a record names them, so a style made before the record existed no longer gets the output style or the review hook on a redeploy; `style-maintain` moves such a style to the current set. A record that names `commit-emoji-check` is read and ignored.
 
-Why the two older layers are no longer offered. The output style repeats
-the whole directive in the main session's system prompt; it never reaches
-subagents, it costs the whole directive again on every request, and a
-custom output style without `keep-coding-instructions` removes Claude
-Code's software engineering instructions from the session. The review
-hook had a small model judge every reply; a `Stop` hook runs after the
-reply is displayed, so each block showed the user an edited reply beneath
-the original, and in use (September 2026) it blocked on grounds its own
-prompt excluded and, once, looped. The judgement it attempted now belongs
-to the session's model: while writing, and on request through the
-`style-review` skill.
+Why three layers are no longer offered. The output style repeats the whole directive in the main session's system prompt; it never reaches subagents, it costs the whole directive again on every request, and a custom output style without `keep-coding-instructions` removes Claude Code's software engineering instructions from the session. The review hook had a small model judge every reply; a `Stop` hook runs after the reply is displayed, so each block showed the user an edited reply beneath the original, and in use (September 2026) it blocked on grounds its own prompt excluded and, once, looped. The judgement it attempted now belongs to the session's model: while writing, and on request through the `style-review` skill. The commit emoji check, a `PreToolUse` hook on Bash, refused a git or gh command whose message contained an emoji. It was retired in 0.6.0 for two reasons found in use. It matched on the command text, not on the message being recorded, so an emoji anywhere in a command that mentioned `git commit` or `gh api`, in a script that edited a document, for example, was refused although nothing was being recorded. And its cheap pre-filter matched the letters git or gh anywhere, so about half of all Bash commands started an interpreter (two, in fact, about 120 ms together) to find nothing. A narrower hook is possible, using the hook handler's `if` filter and a scan of the message alone, but a check that had caught nothing, beside a directive already in context, did not justify the maintenance.
 
-Judgment for meaning, mechanism for form. Whether a phrase is used or
-quoted, figurative or literal, an emoji expressive or under discussion, is
-a judgement. A script is used only for facts it can establish exactly, and
-even then it asks rather than decides: the commit check finds an emoji
-code point, refuses once, and leaves the model to judge; re-running the
-command unchanged is the model's judgement that the emoji is mentioned.
-The same principle keeps JSON validity a matter for a parser, never for
-the model that produced the JSON.
+Judgment for meaning, mechanism for form. Whether a phrase is used or quoted, figurative or literal, an emoji expressive or under discussion, is a judgement, and it belongs to the session's model. A script is used only for facts it can establish exactly. The same principle keeps JSON validity a matter for a parser, never for the model that produced the JSON.
 
 ## Single source of truth and the condensation
 
@@ -75,13 +56,12 @@ Style library (~/.claude/         one folder per style, <slug>/: canonical.md,
                                  bundle that also serves as the installer's
                                  staging directory
 User tier (~/.claude)            writing-style.md, @import line in CLAUDE.md,
-                                 hooks/style-digest.sh, hooks/style-emoji-check.sh
-                                 with hooks/style-json-tool.sh, settings.json
-                                 entries; for an older style, output-styles/<slug>.md
+                                 hooks/style-digest.sh, settings.json entries;
+                                 for an older style, output-styles/<slug>.md
                                  and outputStyle
 Managed tier (per OS)            /Library/Application Support/ClaudeCode or
                                  /etc/claude-code: CLAUDE.md, .edgar-style-policy
-                                 (the sidecar record), the same hook files,
+                                 (the sidecar record), hooks/style-digest.sh,
                                  managed-settings.json entries; for an older
                                  style, .claude/output-styles/<slug>.md; a foreign
                                  CLAUDE.md kept as CLAUDE.md.pre-edgar-style-policy
@@ -89,9 +69,6 @@ Home directory (transient)       install_claude_writing_style.sh /
                                  uninstall_claude_writing_style.sh — the
                                  self-contained sudo scripts; self-delete on
                                  success
-User state                       ${XDG_STATE_HOME:-~/.local/state}/edgar-style-policy/
-                                 emoji-seen — fingerprints of messages the commit
-                                 check has refused once (last 50)
 ```
 
 The style name chosen at authoring keys the library: the installers take
@@ -132,23 +109,21 @@ post-restart verification catches a partial apply.
 ## The JSON engine ladder
 
 All JSON work — encoding the settings fragment, bringing existing settings
-into line with it, stripping it back out, validating, and the commit
-check's scan — runs through one shared library, `scripts/json-tool.sh`,
-identically on macOS and Linux:
+into line with it, stripping it back out, and validating — runs through
+one shared library, `scripts/json-tool.sh`, identically on macOS and Linux:
 
 1. Engine detection, in order: `python3` if it actually executes (an
    execution test, because a Mac without Command Line Tools has a stub
    that resolves on PATH but fails); else `osascript`'s JavaScript
    engine (present on every Mac); else `node`.
-2. Five transforms — `fragment`, `merge`, `strip`, `validate`,
-   `emoji-scan` — with inputs passed via environment variables and results
-   on stdout. The settings transforms touch no file; the calling shell
-   does all reads, backups, and writes. `emoji-scan` alone reads, never
-   writes, the message files a git or gh command names. The logic exists
-   exactly twice: once in Python, once in an engine-neutral JavaScript core
-   shared by thin osascript and node wrappers.
+2. Four transforms — `fragment`, `merge`, `strip`, `validate` — with
+   inputs passed via environment variables and results on stdout. They
+   touch no file; the calling shell does all reads, backups, and writes.
+   The logic exists exactly twice: once in Python, once in an
+   engine-neutral JavaScript core shared by thin osascript and node
+   wrappers.
 3. Shell helpers used by every script: `read_layers` (the record, or the
-   original four when absent), `toolkit_style_files` and
+   directive and the digest when absent), `toolkit_style_files` and
    `toolkit_style_names` (output-style files the toolkit generated,
    recognised by the description line it writes), and `norm_sha256` (a
    file's SHA-256 with trailing newlines removed). They are written to be
@@ -156,28 +131,10 @@ identically on macOS and Linux:
 
 `merge` brings the settings exactly into line with the fragment: it
 removes every toolkit entry (hooks whose command names `style-digest.sh`
-or `style-emoji-check.sh`, a Stop prompt hook with the marker, and an
-`outputStyle` naming a toolkit style) and then adds the fragment's. So a
-redeploy is idempotent, and a dropped layer stays dropped.
-
-The emoji scan matches explicit code-point ranges rather than Unicode
-properties, since engine Unicode versions differ (macOS perl carries
-Unicode 13): U+1F000 to U+1FAFF, U+1FC00 to U+1FFFD, the Basic
-Multilingual Plane characters whose default presentation is emoji, U+FE0F,
-U+20E3, and U+E0020 to U+E007F. It does not match text-default symbols
-such as ©, ™, ✓, arrows, box drawing, or ⚠ without U+FE0F. It examines
-only commands that record a message (git commit, merge, tag; gh pr create,
-edit, comment, review, merge; gh api), the whole command string, and the
-files named by `-F`, `--file`, `--body-file`, or `--input`. It cannot see
-text built from variables or command substitution, messages written by git
-hooks, aliases or scripts, MCP GitHub tools, or pull requests made in a
-desktop interface, and it resolves a message file against the session's
-working directory even after a `cd` in the same command. The hook fails
-open: without an engine, on input it cannot read, or when its state
-directory cannot be written, the command passes. A text it has refused
-once passes from then on (its fingerprint ages out after 50 newer ones),
-so a retry after an unrelated failure, or two copies of the hook running
-at once, give the same answer.
+or the retired `style-emoji-check.sh`, a Stop prompt hook with the marker,
+and an `outputStyle` naming a toolkit style) and then adds the fragment's.
+So a redeploy is idempotent, a dropped layer stays dropped, and the hook
+entry of the retired emoji check is removed from a machine that has it.
 
 When no engine exists at install time, the guiding model performs the
 settings transform itself — it reads the target settings (the managed file
@@ -276,7 +233,7 @@ toolkit, not a deployed style.
   entries the record lacks are removed, those it has are present once.
 - Settings surgery touches only our entries: hooks whose command names
   `style-digest.sh` or `style-emoji-check.sh` (names reserved to this
-  toolkit), the review hook by its prompt marker, and an `outputStyle`
+  toolkit; the second is retired and is only removed), the review hook by its prompt marker, and an `outputStyle`
   naming a toolkit-generated style. All other hooks and settings survive
   install, reinstall, and uninstall.
 - A managed `CLAUDE.md` that is not the toolkit's own is never lost: it is
@@ -295,14 +252,4 @@ toolkit, not a deployed style.
 
 ## Testing
 
-`tests/run-tests.sh` is the committed harness. It runs in a scratch
-directory, touching neither `~/.claude` nor the managed directory, once
-per available engine (forced with `JSON_TOOL_ENGINE`): the migration from
-the four older layers to a record, merge idempotence, the strip, the emoji
-scan on the table in `tests/fixtures/emoji-cases.tsv`, the hook's single
-refusal and fail-open behaviour, a user-tier round trip that must restore
-the original settings, and a managed-tier round trip (the emitted scripts
-with the managed path and the root-only lines overridden) in which a
-foreign `CLAUDE.md` and a foreign setting must both survive. Its fixtures
-are synthetic. Change any script only with the harness passing on every
-engine.
+`tests/run-tests.sh` is the committed harness. It runs in a scratch directory, touching neither `~/.claude` nor the managed directory, once per available engine (forced with `JSON_TOOL_ENGINE`): the migration from the four older layers to a record, with the hook entry of the retired emoji check removed, merge idempotence, and the strip; and, once, the fallback for a style without a record, a user-tier round trip that must restore the original settings and remove a leftover emoji check, and a managed-tier round trip (the emitted scripts with the managed path and the root-only lines overridden) in which a foreign `CLAUDE.md` and a foreign setting must both survive. Its fixtures are synthetic. Change any script only with the harness passing on every engine.

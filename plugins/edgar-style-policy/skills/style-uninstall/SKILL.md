@@ -1,6 +1,6 @@
 ---
 name: style-uninstall
-description: Remove an installed edgar writing-style policy for Claude from this machine. Detects the installed tier, removes the deployed directive and every layer the toolkit deployed with it (digest hook, commit emoji check, and for older styles the output style and review hook), surgically, leaving any other settings intact, and leaves the style library untouched. For the managed tier it writes a self-contained sudo uninstaller to the home directory. Use when the user wants to uninstall, remove, delete, disable, or tear down their edgar writing-style policy or style enforcement setup.
+description: Remove an installed edgar writing-style policy for Claude from this machine. Detects the installed tier, removes the deployed directive and every layer the toolkit deployed with it (digest hook, a commit emoji check left by a release before 0.6.0, and for older styles the output style and review hook), surgically, leaving any other settings intact, and leaves the style library untouched. For the managed tier it writes a self-contained sudo uninstaller to the home directory. Use when the user wants to uninstall, remove, delete, disable, or tear down their edgar writing-style policy or style enforcement setup.
 ---
 
 # Style-policy uninstall
@@ -90,8 +90,7 @@ it under sudo. Never apply a strip you have not validated.
 
 Have the user fully quit and restart Claude Code, then confirm the
 policy is gone: the directive is no longer in context (ask Claude), no
-digest line arrives with a prompt, and a commit whose message carries an
-emoji is no longer refused. If any layer persists, the session may be stale (recheck after
+digest line arrives with a prompt. If any layer persists, the session may be stale (recheck after
 a restart) or, on the managed tier, the sudo uninstaller may not have
 been run yet.
 

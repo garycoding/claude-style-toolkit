@@ -51,19 +51,11 @@ that says what is deployed besides the directive itself:
 | Layer | Artifact | What it does |
 |---|---|---|
 | directive (always) | Managed `CLAUDE.md`, or `~/.claude/writing-style.md` imported from `~/.claude/CLAUDE.md` | The full rules in every session's context, the main session and subagents alike (except the built-in Explore and Plan agents); re-read at compaction |
-| `digest` | `UserPromptSubmit` command hook | A short restatement of the rules most often broken, injected with every prompt, so they stay close to the point of writing in a long session |
-| `commit-emoji-check` | `PreToolUse` command hook on Bash | For a style that bars emoji as a means of expression: refuses once a git commit, tag or merge, or a gh pull-request command, whose message contains an emoji, and asks the model to judge; the unchanged rerun passes. Set `attribution.pr` beside it, since Claude Code's default pull-request attribution line carries an emoji |
+| `digest` | `UserPromptSubmit` command hook | A short restatement of the rules most often broken, injected with every prompt, so they stay close to the point of writing in a long session. The text is added to the context of every prompt and kept in the transcript, so it should stay near 60 to 80 tokens |
 
-Two older layers remain for styles made before the record existed, and are
-no longer offered by default. `output-style` repeated the whole directive
-in the main session's system prompt; it never reached subagents, cost the
-whole directive again on every request, and, without
-`keep-coding-instructions`, removed Claude Code's software engineering
-instructions from the session. `stop-review` had a small model judge every
-reply against the rules; it ran after the reply was displayed, so each
-block showed an edited reply beneath the original, and in use it blocked
-on grounds its own prompt excluded. `style-maintain` offers to move an
-older style to the current set.
+Three layers have been retired. `output-style` repeated the whole directive in the main session's system prompt; it never reached subagents, cost the whole directive again on every request, and, without `keep-coding-instructions`, removed Claude Code's software engineering instructions from the session. `stop-review` had a small model judge every reply against the rules; it ran after the reply was displayed, so each block showed an edited reply beneath the original, and in use it blocked on grounds its own prompt excluded. `commit-emoji-check`, a `PreToolUse` hook on Bash that refused a git or gh command whose message contained an emoji, was retired in 0.6.0: it scanned the whole command rather than the message, so an emoji anywhere in a command that merely mentioned `git commit` or `gh api` was refused; and it started an interpreter, about 120 ms, on every Bash command that contained the letters git or gh, which was about half of all Bash commands over three weeks of use.
+
+A style folder without a layer record deploys the directive and the digest. The two oldest layers are deployed only when a record names them, and `style-maintain` offers to move such a style to the current set. A record that still names `commit-emoji-check` is ignored, and the next redeploy removes the hook files and the settings entry an earlier release deployed. The `attribution.pr` setting made beside the check is no longer needed and may stay or go.
 
 ## Design rationale
 
@@ -71,10 +63,8 @@ older style to the current set.
 quoted, figurative or literal, expressive or under discussion, is a
 judgement. The toolkit leaves that judgement to the session's own model:
 while it writes, from the directive in context, and on request with
-`style-review` for a draft that will leave the machine. Mechanism is used
-only for facts a script can establish exactly, such as whether a commit
-message contains an emoji; even there the script only asks, and the model
-judges.
+`style-review` for a draft that will leave the machine. The toolkit installs
+no hook that filters or judges text.
 
 **Single source of truth governs authoring, not deployment.** The only
 editable copy of the directive is the canonical file in the style's
@@ -202,10 +192,10 @@ backup.
 `tests/run-tests.sh` runs the scripts in a scratch directory, touching
 neither `~/.claude` nor the managed directory, on every JSON engine
 available (python3, osascript, node): the migration from the older layers
-to a layer record, merge idempotence, the settings strip, the emoji scan
-on a table of cases, the commit check's single refusal, and full user-tier
-and managed-tier round trips that must restore the original settings and
-a foreign managed `CLAUDE.md`.
+to a layer record, the fallback for a style without one, merge idempotence,
+the settings strip, the removal of the retired emoji check, and full
+user-tier and managed-tier round trips that must restore the original
+settings and a foreign managed `CLAUDE.md`.
 
 ## Releasing
 
@@ -244,9 +234,7 @@ above, without any additional terms or conditions.
 The license covers the toolkit only. A writing-style directive you
 produce with the `style-author` skill is your own work and carries no
 license — the skill never tags it, and the copies deployed from it (the
-directive, the digest hook) are header-free private configuration. The
-toolkit's own scripts that the installers deploy beside them
-(`style-emoji-check.sh`, `style-json-tool.sh`) keep their headers.
+directive, the digest hook) are header-free private configuration.
 
 This repository is [REUSE](https://reuse.software/)-compliant; verify
 with `uvx --from "reuse[charset-normalizer]" reuse lint`.
@@ -272,8 +260,7 @@ plugins/edgar-style-policy/
                                  (no sudo), build-managed-installer.sh,
                                  build-managed-uninstaller.sh (emit the
                                  self-contained sudo scripts),
-                                 style-digest-template.sh,
-                                 style-emoji-check.sh (the commit check)
+                                 style-digest-template.sh
 tests/                           run-tests.sh and synthetic fixtures
 docs/                            architecture.md, in-flight_ideas.md,
                                  the Cowork user guide (MD and HTML)

@@ -52,7 +52,7 @@ will catch up later.
 Tell the user the one step you cannot take: run `/reload-plugins`, or start
 a new session, to load the new version. Then say plainly what an update
 leaves alone: the plugin's files are replaced, but a deployed style (the
-directive, the digest hook, the emoji check, the settings entries) is a
+directive, the digest hook, the settings entries) is a
 copy made at install time and does not change by itself. When a release
 changes what a style deploys, the release notes say so, and a
 `style-maintain` redeploy brings the machine into line.

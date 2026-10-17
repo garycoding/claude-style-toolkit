@@ -1,6 +1,6 @@
 ---
 name: style-maintain
-description: Review, verify, troubleshoot, and update an installed edgar writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (the directive, the digest hook, the commit emoji check, and for older styles the output style and review hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, moves older styles to the current layer set, redeploys to the installed tier, and migrates between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, or move (migrate) their edgar writing-style policy or style enforcement setup. For removing a policy, use the style-uninstall skill instead.
+description: Review, verify, troubleshoot, and update an installed edgar writing-style policy for Claude. Audits deployed files against the canonical directive, checks the live layers (the directive, the digest hook, and for older styles the output style and review hook), diagnoses why a style is not being followed, checks for Claude Code platform drift, reworks the directive from new example documents and observed unwanted behaviors, moves older styles to the current layer set, redeploys to the installed tier, and migrates between tiers. Use when the user wants to check, fix, update, revise, re-verify, troubleshoot, or move (migrate) their edgar writing-style policy or style enforcement setup. For removing a policy, use the style-uninstall skill instead.
 ---
 
 # Style-policy maintenance
@@ -18,8 +18,8 @@ Determine which tier is installed:
 - **Managed tier**: macOS `/Library/Application Support/ClaudeCode/`,
   Linux `/etc/claude-code/` — look for `CLAUDE.md`, the sidecar record
   `.edgar-style-policy`, `managed-settings.json` (the toolkit's entries:
-  hooks whose command names `style-digest.sh` or `style-emoji-check.sh`,
-  and, for an older style, `outputStyle` and a Stop prompt hook whose
+  hooks whose command names `style-digest.sh` or the retired
+  `style-emoji-check.sh`, and, for an older style, `outputStyle` and a Stop prompt hook whose
   prompt starts with `[writing-style-policy]`), `hooks/`, and
   `.claude/output-styles/*.md`.
 - **User tier**: `~/.claude/writing-style.md`, an `@~/.claude/writing-style.md`
@@ -33,12 +33,12 @@ Record the tier — later phases (redeploy, migrate) branch on it.
 **The style library.** Authored styles are stored as deployable bundles,
 one folder per style, under `~/.claude/edgar-style-policies/<slug>/`:
 `canonical.md` (the editable source), `layers` (the layer record, one
-`<layer>=on` line per layer besides the directive: `digest`,
-`commit-emoji-check`, and for older styles `output-style`,
-`output-style-coding`, `stop-review`), `digest.sh`, `review-prompt.txt`
+`<layer>=on` line per layer besides the directive: `digest`, and for
+older styles `output-style`, `output-style-coding`, `stop-review`; a
+record that still names the retired `commit-emoji-check` is ignored),
+`digest.sh`, `review-prompt.txt`
 (older styles with the review hook only), and `VERIFIED.md`. A folder
-without `layers` is an older style that deploys the original four layers
-(directive, output style, digest, review hook). The ACTIVE style is the
+without `layers` deploys the directive and the digest. The ACTIVE style is the
 one whose `canonical.md` matches the deployed directive (the managed
 `CLAUDE.md` or `~/.claude/writing-style.md`) after normalising trailing
 blank lines; if a canonical was edited since the last deploy, none will
@@ -88,10 +88,10 @@ Report each check as pass/fail with the evidence:
 
 In the current session (or instruct the user to run these in a fresh
 one): confirm the directive is present in context; confirm the digest
-line arrived with the user's prompt, if that layer is on; confirm the
-commit emoji check is registered (Phase 2, check 4), if that layer is on
-— its behaviour is covered by the toolkit's `tests/run-tests.sh`, which
-the user can run from a clone. If the user works in a desktop app, have
+line arrived with the user's prompt, if that layer is on; confirm that no
+`style-emoji-check.sh` hook or settings entry remains (a machine that was
+last deployed by a release before 0.6.0 still has them; a redeploy
+removes them). If the user works in a desktop app, have
 them repeat the context check once in a Code tab session, and in a Cowork
 session at the managed tier (Cowork does not read `~/.claude`, so the user
 tier does not reach it).
@@ -138,11 +138,9 @@ The policy depends on Claude Code mechanics that change between versions:
    inert.
 2. **Plugin override**: check enabled plugins for an output style with
    `force-for-plugin: true`, which outranks any `outputStyle`.
-3. **Hook execution**: confirm the digest fires and the emoji check is
-   registered (Phase 3). If hook fields or exit-code semantics change in
-   a future version, run the toolkit's tests and a live commit with an
-   emoji in a scratch repository. Note that `--safe-mode` starts a session
-   with all hooks disabled.
+3. **Hook execution**: confirm the digest fires (Phase 3). If hook fields
+   change in a future version, run the toolkit's tests. Note that
+   `--safe-mode` starts a session with all hooks disabled.
 4. **Older layers** (older styles only): confirm `outputStyle` is still
    honoured and the review hook is registered; better, move the style to
    the current layer set (Phase 7a).
@@ -228,11 +226,7 @@ unless `keep-coding-instructions` is set, removes Claude Code's software
 engineering instructions; the review hook judges every reply after it is
 displayed, so each block shows an edited reply beneath the original.
 Offer the move, explain those two reasons once, and let the user choose.
-If they agree, write `layers` with `digest=on` (and `commit-emoji-check=on`
-if the directive bars emoji as a means of expression, together with
-`attribution.pr` in `~/.claude/settings.json` set to
-`Generated with [Claude Code](https://claude.com/claude-code)`, since the
-default attribution line carries an emoji), then redeploy (Phase 7). The installers remove the output-style files, `outputStyle` and
+If they agree, write `layers` with `digest=on`, then redeploy (Phase 7). The installers remove the output-style files, `outputStyle` and
 the review hook as part of that redeploy. The `review-prompt.txt` may stay
 in the folder; nothing deploys it once `stop-review` is off.
 

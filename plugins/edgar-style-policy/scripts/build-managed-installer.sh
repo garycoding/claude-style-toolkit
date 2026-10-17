@@ -11,10 +11,11 @@
 # the policy root-owned, and deletes itself.
 #
 # Layers (from <staging-dir>/layers, "<layer>=on" lines; a folder without a
-# record keeps the original four): the directive as the managed CLAUDE.md is
-# always deployed; digest, output-style (with output-style-coding for
-# keep-coding-instructions), stop-review, and commit-emoji-check are
-# deployed when on and removed when off.
+# record deploys the directive and the digest): the directive as the managed
+# CLAUDE.md is always deployed; digest, output-style (with output-style-coding
+# for keep-coding-instructions), and stop-review are deployed when on and
+# removed when off. The commit emoji check, retired in 0.6.0, is never
+# deployed, and its files and settings entry are removed.
 #
 # The managed CLAUDE.md is protected: before it is written, an existing one
 # that is not the toolkit's own (it matches neither the sidecar record
@@ -66,11 +67,11 @@ done
 
 # Collision guard: payloads must not contain the heredoc sentinels wrapping them.
 guard() { grep -qF "$2" "$1" && { echo "Payload $1 contains sentinel $2; aborting." >&2; exit 1; } || true; }
-GUARDED_FILES=("${SCRIPT_DIR}/json-tool.sh" "${SCRIPT_DIR}/style-emoji-check.sh")
+GUARDED_FILES=("${SCRIPT_DIR}/json-tool.sh")
 for f in "${REQUIRED[@]}"; do GUARDED_FILES+=("${STAGING}/${f}"); done
 [[ -n "$PREMERGED" ]] && GUARDED_FILES+=("$PREMERGED")
 for s in __CS_DIRECTIVE_EOF__ __CS_STYLE_EOF__ __CS_DIGEST_EOF__ __CS_FRAG_EOF__ \
-         __CS_PREMERGED_EOF__ __CS_EMOJI_EOF__ __CS_JSONTOOL_EOF__; do
+         __CS_PREMERGED_EOF__; do
     for f in "${GUARDED_FILES[@]}"; do guard "$f" "$s"; done
 done
 # The substitution placeholder is reserved too — in staged content (not the
@@ -125,7 +126,7 @@ STYLE_DIR="${MANAGED_DIR}/.claude/output-styles"
 CM="${MANAGED_DIR}/CLAUDE.md"
 SIDECAR="${MANAGED_DIR}/.edgar-style-policy"
 STAMP="$(date +%Y%m%d%H%M%S).$$"
-mkdir -p "$HOOKS_DIR" "$STYLE_DIR"
+mkdir -p "$HOOKS_DIR"
 # Style names the toolkit deployed before this run, read before any file changes.
 TOOLKIT_STYLES="$(toolkit_style_names "$STYLE_DIR")"
 
@@ -161,6 +162,7 @@ BODY1
     # Output style: every toolkit-generated file removed; this style's written if on.
     printf 'toolkit_style_files "$STYLE_DIR" | while IFS= read -r f; do rm -f "$f"; done\n'
     if has_layer "$LAYERS" output-style; then
+        printf 'mkdir -p "$STYLE_DIR"\n'
         printf 'cat > "${STYLE_DIR}/${SLUG}.md" <<'\''__CS_STYLE_EOF__'\''\n'
         printf -- '---\nname: %s\ndescription: Writing style directive (managed; do not edit)\n' "$STYLE_NAME"
         has_layer "$LAYERS" output-style-coding && printf 'keep-coding-instructions: true\n'
@@ -177,18 +179,9 @@ BODY1
     else
         printf 'rm -f "${HOOKS_DIR}/style-digest.sh"\n'
     fi
-    # Commit and pull-request emoji check, with its JSON engine library.
-    if has_layer "$LAYERS" commit-emoji-check; then
-        printf 'cat > "${HOOKS_DIR}/style-emoji-check.sh" <<'\''__CS_EMOJI_EOF__'\''\n'
-        cat "${SCRIPT_DIR}/style-emoji-check.sh"
-        printf '__CS_EMOJI_EOF__\n'
-        printf 'cat > "${HOOKS_DIR}/style-json-tool.sh" <<'\''__CS_JSONTOOL_EOF__'\''\n'
-        cat "${SCRIPT_DIR}/json-tool.sh"
-        printf '__CS_JSONTOOL_EOF__\n'
-        printf 'chmod 0755 "${HOOKS_DIR}/style-emoji-check.sh"; chmod 0644 "${HOOKS_DIR}/style-json-tool.sh"\n'
-    else
-        printf 'rm -f "${HOOKS_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-json-tool.sh"\n'
-    fi
+    # The commit emoji check was retired in 0.6.0: remove what an earlier
+    # release deployed (the settings entry is removed by the merge below).
+    printf 'rm -f "${HOOKS_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-json-tool.sh"\n'
     # Settings fragment (built and validated at build time).
     printf 'FRAGMENT=$(cat <<'\''__CS_FRAG_EOF__'\''\n'
     printf '%s\n' "$FRAGMENT"
@@ -232,6 +225,10 @@ else
     printf '%s\n' "$FRAGMENT" > "$MS"
 fi
 
+# Remove the output-style directories when they are left empty (an earlier
+# release created them whatever the layers were).
+rmdir "$STYLE_DIR" "${MANAGED_DIR}/.claude" 2>/dev/null || true
+
 # Root-own the whole tree, then set file modes.
 chown -R "root:${GROUP}" "$MANAGED_DIR"
 chmod 0644 "$CM" "$MS" "$SIDECAR"
@@ -242,7 +239,6 @@ echo "Layers on: CLAUDE.md ${LAYERS}"
 echo "Fully quit and restart Claude Code (a /clear is not enough), then verify:"
 echo "  1. Ask Claude whether the managed CLAUDE.md with the directive is in its context."
 echo "  2. Confirm the digest line arrives with each prompt, if the digest layer is on."
-echo "  3. A commit whose message carries an emoji is refused once, if that check is on."
 
 SELF="$0"
 rm -f "$SELF" && echo "Removed installer: $SELF"

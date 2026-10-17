@@ -15,9 +15,9 @@ Recorded 25 September 2026, during the review that introduced the layer
 record. Claude Code plugins can now ship hooks (`hooks/hooks.json`) and
 output styles, and managed settings can force-enable a plugin through
 `enabledPlugins`. A plugin cannot ship a CLAUDE.md. After the September
-changes a style deploys the directive (a file), the digest hook and, for
-some styles, the commit emoji check; the two hooks could ship inside the
-plugin, so that no settings file is merged for them and the JSON engine
+changes a style deploys the directive (a file) and the digest hook; with
+the commit emoji check retired in 0.6.0, that one hook could ship inside
+the plugin, so that no settings file is merged for it and the JSON engine
 ladder shrinks to the managed tier and the fallback.
 
 Open questions before it is worth building:

@@ -30,12 +30,13 @@ directive.
   or quoted, figurative or literal, expressive or under discussion, is a
   judgement, and it is made by the session's own model: while writing,
   from the directive in context, and on request with the `style-review`
-  skill for a draft that will leave the machine. Mechanism is kept for
-  facts a script can establish exactly, such as whether a commit message
-  contains an emoji; even there, the script only asks, and the model
-  judges. The toolkit installs no after-the-fact review of every reply: a
-  `Stop` hook runs once the reply is already on screen, so each block
-  shows the user an edited reply beneath the original.
+  skill for a draft that will leave the machine. The toolkit installs no
+  after-the-fact review of every reply (a `Stop` hook runs once the reply
+  is already on screen, so each block shows the user an edited reply
+  beneath the original), and no hook that filters commit or pull-request
+  text (the commit emoji check, retired in 0.6.0, refused commands that
+  recorded nothing and cost an interpreter start on half of all Bash
+  commands).
 - **The user owns the content.** You own the structure and the process.
   When their preference conflicts with your advice, say so once, then
   follow their verdict.
@@ -90,8 +91,9 @@ existing draft already establish, and confirm rather than re-ask it:
   section and the digest (Phase 5). For a PR or marketing user this list
   is often the highest-value artifact.
 - Emoji: whether they may be used at all. If the user bars them as a
-  means of expression, the directive says so, and the commit emoji check
-  (Phase 6) enforces it for commit messages and pull-request texts.
+  means of expression, the directive says so. Claude Code's default
+  pull-request attribution line carries an emoji; the user can replace it
+  with the `attribution.pr` setting if they want it gone.
 - Claims policy: what may be asserted, what needs evidence, how
   uncertainty is expressed. (For commercial writing: what counts as an
   inflated claim.)
@@ -177,9 +179,11 @@ against the directive on every future edit — tell the user this plainly.
 Write it as declarative statements only (text framed as system-voice
 commands can trip prompt-injection defenses). Name the rules most often
 broken (voice, the formatting bans, the banned words, claims discipline);
-a digest of about 60 to 80 tokens is the usual size, and a longer one is
-acceptable when the user wants more of the directive restated each turn,
-since it is then the only per-turn reminder. End by noting that the full
+a digest of about 60 to 80 tokens is the usual size. It is added to the
+context of every prompt and kept in the session transcript, so a digest
+of 190 tokens costs about 19,000 tokens over a hundred prompts; a longer
+one is acceptable only when the user, told that cost, wants more of the
+directive restated each turn. End by noting that the full
 directive is in the managed or user CLAUDE.md.
 
 ## Phase 6 — Deploy
@@ -197,59 +201,48 @@ and belongs solely to them: never write a license header, SPDX tag, or
 copyright line into `canonical.md` or into anything deployed from it.
 When you copy the digest template into staging, drop its entire leading
 comment block (the SPDX lines and the TEMPLATE note), keeping only the
-shebang and the operational note. The toolkit's own files that the
-installers deploy beside it (`style-emoji-check.sh`, `style-json-tool.sh`)
-are toolkit code and keep their headers.
+shebang and the operational note.
 
 **Choose the layers, with the user.** The directive always deploys, as the
 managed `CLAUDE.md` or as `~/.claude/writing-style.md` imported from
 `~/.claude/CLAUDE.md`; it reaches the main session and every subagent
 except the built-in Explore and Plan agents. Beside it, ask about:
 
-- `digest` (recommended): the per-prompt reminder of Phase 5.
-- `commit-emoji-check`: offer it when the directive bars emoji as a means
-  of expression. A `PreToolUse` hook refuses once a git commit, tag or
-  merge, or a gh pull-request command, whose message contains an emoji,
-  and asks the model to judge: replace an emoji that expresses or
-  decorates; re-run unchanged when the emoji is itself the subject under
-  discussion, and the rerun passes. It runs before anything is recorded,
-  so the user never sees an edited message. Wherever it is installed, also
-  set `attribution.pr` in `~/.claude/settings.json` (back the file up
-  first) to `Generated with [Claude Code](https://claude.com/claude-code)`:
-  Claude Code's default pull-request attribution line carries an emoji,
-  and without the setting every pull request Claude opens is refused once.
+- `digest` (recommended, and the only layer offered): the per-prompt
+  reminder of Phase 5. It is added to the context of every prompt, so say
+  what it costs: its token count multiplied by the number of prompts in a
+  session. The user may prefer to leave it off and rely on the directive
+  alone.
 
-Two older layers exist for styles made before the layer record; new styles
-do not use them (the review hook would need a `review-prompt.txt`, which
-only an older style's folder holds), and the user should hear why if they
-ask: `output-style` repeats the directive in
-the system prompt of the main session only (subagents never receive
-it), at the cost of the whole directive again on every request, and a
-custom output style drops Claude Code's software engineering instructions
-unless `output-style-coding` is also on; `stop-review` is a small-model
-review of every reply that runs after the reply is displayed, so each
-block shows an edited reply beneath the original, and in use it has
-blocked on grounds its own prompt excluded. Offer the on-request
-`style-review` skill instead.
+Three older layers exist, and new styles do not use them. The user should
+hear why if they ask. `output-style` repeats the directive in the system
+prompt of the main session only (subagents never receive it), at the cost
+of the whole directive again on every request, and a custom output style
+drops Claude Code's software engineering instructions unless
+`output-style-coding` is also on. `stop-review` is a small-model review of
+every reply that runs after the reply is displayed, so each block shows an
+edited reply beneath the original, and in use it has blocked on grounds
+its own prompt excluded. `commit-emoji-check`, a `PreToolUse` hook on
+Bash, was retired in 0.6.0: it matched on the command text, so it refused
+commands that recorded nothing, and it started an interpreter on about half
+of all Bash commands. Offer the on-request `style-review` skill instead.
 
 Write the choice to the bundle's layer record, `layers`, one line per
-layer that is on (for example `digest=on` and `commit-emoji-check=on`). A
-bundle without a `layers` file is treated as an older style and deploys
-the original four layers, so always write one for a new style.
+layer that is on (for example `digest=on`). A bundle without a `layers`
+file deploys the directive and the digest, so write one whenever the
+digest is to be left off.
 
 **Preflight.** The installers run their JSON work on whichever engine
 the machine has, identically on macOS and Linux: `python3` if it
 executes (test with `python3 -c 'import json'`, not a PATH check — a
 stock Mac without Command Line Tools has a stub that resolves but
 fails), else `osascript` (present on every Mac), else `node`. In
-practice at least one exists on every supported machine. The commit
-emoji check uses the same ladder at run time, only for git and gh
-commands, and lets the command through when no engine is found. Only if
+practice at least one exists on every supported machine. Only if
 NONE exists at install time do you perform the merge yourself:
 
 - *User tier*: read `~/.claude/settings.json`, bring it into line with
   the layer record yourself (remove any hook whose command names
-  `style-digest.sh` or `style-emoji-check.sh`, any marker-tagged Stop
+  `style-digest.sh` or the retired `style-emoji-check.sh`, any marker-tagged Stop
   prompt hook, and an `outputStyle` naming a toolkit style; then add the
   entries of the layers that are on), validate the result mechanically
   before writing — on macOS pipe it through
@@ -329,9 +322,7 @@ Have the user fully quit and restart Claude Code — managed settings and
 CLAUDE.md are read at session start, and a `/clear` does not reload them.
 Then, in the fresh session: ask Claude whether the directive is in its
 context; confirm the digest line arrives with a prompt, if that layer is
-on; if the commit emoji check is on, confirm the hook is registered in
-the tier's settings file (its behaviour is covered by the toolkit's
-tests, `tests/run-tests.sh`). If the user works in a desktop app, have
+on. If the user works in a desktop app, have
 them repeat the context check once in a Code tab session, and in a Cowork
 session at the managed tier.
 
