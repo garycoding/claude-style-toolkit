@@ -11,7 +11,8 @@
 #                 canonical.md, plus digest.sh when the digest layer is on
 #                 and review-prompt.txt when the stop-review layer is on.
 #                 Its "layers" file (lines "<layer>=on") says which layers
-#                 are deployed; a folder without one keeps the original four.
+#                 are deployed; a folder without one deploys the directive
+#                 and the digest.
 #   [style-name]  display name of the style (default: Writing Style)
 #
 # JSON work runs on whichever engine the machine has — python3, osascript
@@ -24,8 +25,9 @@
 #   ~/.claude/output-styles/<slug>.md     <- output-style layer, else every
 #                                            toolkit-generated style file removed
 #   ~/.claude/hooks/style-digest.sh       <- digest layer
-#   ~/.claude/hooks/style-emoji-check.sh  <- commit-emoji-check layer, with
-#   ~/.claude/hooks/style-json-tool.sh       its JSON engine library
+#   ~/.claude/hooks/style-emoji-check.sh,
+#   ~/.claude/hooks/style-json-tool.sh    <- removed (the emoji check, retired
+#                                            in 0.6.0, and its engine library)
 #   ~/.claude/settings.json               <- outputStyle and the hooks for the
 #                                            layers that are on (merged; backup first)
 set -euo pipefail
@@ -59,11 +61,6 @@ for f in "${REQUIRED[@]}"; do
     grep -qF "__CS_HOOKS_DIR__" "${STAGING}/${f}" && {
         echo "Staged ${f} contains the reserved placeholder __CS_HOOKS_DIR__; remove it." >&2; exit 1; } || true
 done
-if has_layer "$LAYERS" commit-emoji-check; then
-    for f in style-emoji-check.sh json-tool.sh; do
-        [[ -f "${SCRIPT_DIR}/${f}" ]] || { echo "Missing toolkit file ${SCRIPT_DIR}/${f}" >&2; exit 1; }
-    done
-fi
 
 # Preflight BEFORE any mutation: an engine must exist, and any existing
 # settings.json must parse, or we abort cleanly rather than half-install.
@@ -95,7 +92,8 @@ FRAGMENT="${FRAGMENT//__CS_HOOKS_DIR__/${HOOKS_DIR}}"
 MERGED="$(FRAGMENT="$FRAGMENT" EXISTING="$EXISTING" STYLE="$STYLE_NAME" \
     TOOLKIT_STYLES="$TOOLKIT_STYLES" json_transform merge)"
 
-mkdir -p "$HOOKS_DIR" "$STYLES_DIR"
+mkdir -p "$HOOKS_DIR"
+has_layer "$LAYERS" output-style && mkdir -p "$STYLES_DIR"
 
 # Canonical copy + import from the global CLAUDE.md (append, never overwrite).
 cp "$CANONICAL_SRC" "${CLAUDE_DIR}/writing-style.md"
@@ -124,12 +122,9 @@ if has_layer "$LAYERS" digest; then
 else
     rm -f "${HOOKS_DIR}/style-digest.sh"
 fi
-if has_layer "$LAYERS" commit-emoji-check; then
-    install -m 0755 "${SCRIPT_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-emoji-check.sh"
-    install -m 0644 "${SCRIPT_DIR}/json-tool.sh" "${HOOKS_DIR}/style-json-tool.sh"
-else
-    rm -f "${HOOKS_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-json-tool.sh"
-fi
+# The commit emoji check was retired in 0.6.0; remove what an earlier release
+# deployed (the settings entry is removed by the merge below).
+rm -f "${HOOKS_DIR}/style-emoji-check.sh" "${HOOKS_DIR}/style-json-tool.sh"
 
 # Settings: write the pre-computed merge (backup first).
 if [[ -f "$SETTINGS" ]]; then
@@ -142,6 +137,4 @@ echo "Layers on: CLAUDE.md ${LAYERS}"
 echo "Fully quit and restart Claude Code (a /clear is not enough), then verify:"
 echo "  1. Ask Claude whether the writing-style directive is in its context."
 has_layer "$LAYERS" digest && echo "  2. Confirm the digest line arrives with each prompt."
-has_layer "$LAYERS" commit-emoji-check && \
-    echo "  3. A commit whose message carries an emoji is refused once, with the judgement asked for."
 exit 0

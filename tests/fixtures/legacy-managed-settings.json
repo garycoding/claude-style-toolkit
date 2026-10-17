@@ -43,6 +43,15 @@
             "command": "foreign-lint.sh"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/managed/hooks/style-emoji-check.sh\""
+          }
+        ]
       }
     ]
   }
